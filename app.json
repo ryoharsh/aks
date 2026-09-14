@@ -11,15 +11,29 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#010100"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/satoshi_light.otf",
+            "./assets/fonts/satoshi_regular.otf",
+            "./assets/fonts/satoshi_medium.otf",
+            "./assets/fonts/satoshi_bold.otf",
+            "./assets/fonts/satoshi_black.otf"
+          ]
+        }
+      ],
+      "expo-splash-screen",
+      "expo-video"
+    ]
   }
 }
