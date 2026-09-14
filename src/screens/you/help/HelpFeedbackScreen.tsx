@@ -1,10 +1,5 @@
 import React from "react";
-import {
-    Linking,
-    Pressable,
-    ScrollView,
-    View,
-} from "react-native";
+import { Linking, Pressable, ScrollView, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Animated, {
@@ -17,22 +12,24 @@ import {
     type IconSvgElement,
 } from "@hugeicons/react-native";
 import {
+    ArrowLeftIcon,
     ArrowRight01Icon,
     Chat01Icon,
     FileEditIcon,
+    LightbulbIcon,
     Mail01Icon,
     MessageQuestionIcon,
     Bug01Icon,
-    LightbulbIcon,
+    SparklesIcon,
 } from "@hugeicons/core-free-icons";
 
 import AppText from "@/components/ui/Text";
 import IconButton from "@/components/ui/IconButton";
-import type { YouStackParamList } from "@/navigation/routes";
+import type { HelpFeedbackStackParamList } from "@/navigation/routes";
 
 type Props = NativeStackScreenProps<
-    YouStackParamList,
-    "HelpFeedback"
+    HelpFeedbackStackParamList,
+    "HelpFeedbackHome"
 >;
 
 type ActionItemProps = {
@@ -51,7 +48,8 @@ function ActionItem({
     return (
         <Pressable
             onPress={onPress}
-            className="flex-row items-center border-b border-border py-5"
+            android_ripple={{ color: "#E5E5E5" }}
+            className="flex-row items-center border-b border-border py-5 active:opacity-80"
         >
             <View className="mr-4 h-11 w-11 items-center justify-center rounded-2xl bg-surface">
                 <HugeiconsIcon
@@ -62,7 +60,7 @@ function ActionItem({
                 />
             </View>
 
-            <View className="flex-1">
+            <View className="flex-1 pr-3">
                 <AppText
                     variant="button"
                     className="text-text-high"
@@ -72,7 +70,7 @@ function ActionItem({
 
                 <AppText
                     variant="caption"
-                    className="mt-1 text-text-low"
+                    className="mt-1 leading-[17px] text-text-low"
                 >
                     {description}
                 </AppText>
@@ -93,25 +91,7 @@ export default function HelpFeedbackScreen({
 }: Props) {
     const openEmail = () => {
         Linking.openURL(
-            "mailto:support@aks.ai?subject=Aks%20Support",
-        );
-    };
-
-    const reportIssue = () => {
-        Linking.openURL(
-            "mailto:support@aks.ai?subject=Aks%20Bug%20Report",
-        );
-    };
-
-    const sendFeedback = () => {
-        Linking.openURL(
-            "mailto:hello@aks.ai?subject=Aks%20Feedback",
-        );
-    };
-
-    const suggestIdea = () => {
-        Linking.openURL(
-            "mailto:hello@aks.ai?subject=Aks%20Feature%20Idea",
+            "mailto:support@aks.ai?subject=Aks%20Support"
         );
     };
 
@@ -128,13 +108,8 @@ export default function HelpFeedbackScreen({
                     className="mr-3"
                 >
                     <HugeiconsIcon
-                        icon={ArrowRight01Icon}
-                        size={21}
-                        color="#171717"
-                        strokeWidth={1.8}
-                        style={{
-                            transform: [{ rotate: "180deg" }],
-                        }}
+                        icon={ArrowLeftIcon}
+                        size={22}
                     />
                 </IconButton>
 
@@ -163,7 +138,7 @@ export default function HelpFeedbackScreen({
 
                     <AppText
                         variant="body"
-                        className="mt-3 max-w-[330px] text-text-low"
+                        className="mt-3 max-w-82.5 text-text-low"
                     >
                         Something not working, something confusing, or
                         something you wish Aks could do?
@@ -176,10 +151,10 @@ export default function HelpFeedbackScreen({
                 >
                     <View className="rounded-[28px] border border-border bg-surface p-5">
                         <View className="flex-row items-center">
-                            <View className="mr-4 h-12 w-12 items-center justify-center rounded-2xl bg-background">
+                            <View className="mr-4 h-11 w-11 items-center justify-center rounded-2xl bg-background">
                                 <HugeiconsIcon
                                     icon={Chat01Icon}
-                                    size={23}
+                                    size={22}
                                     color="#171717"
                                     strokeWidth={1.8}
                                 />
@@ -204,7 +179,8 @@ export default function HelpFeedbackScreen({
 
                         <Pressable
                             onPress={openEmail}
-                            className="mt-5 h-12 items-center justify-center rounded-2xl bg-primary"
+                            android_ripple={{ color: "#2A2A2A" }}
+                            className="mt-5 h-12 items-center justify-center rounded-2xl bg-primary active:opacity-90"
                         >
                             <AppText
                                 variant="button"
@@ -232,14 +208,18 @@ export default function HelpFeedbackScreen({
                             icon={MessageQuestionIcon}
                             title="Frequently asked questions"
                             description="Find quick answers to common questions"
-                            onPress={() => { }}
+                            onPress={() =>
+                                navigation.navigate("FAQ")
+                            }
                         />
 
                         <ActionItem
                             icon={Bug01Icon}
                             title="Report a problem"
                             description="Tell us when something isn't working"
-                            onPress={reportIssue}
+                            onPress={() =>
+                                navigation.navigate("ReportProblem")
+                            }
                         />
                     </View>
                 </Animated.View>
@@ -260,14 +240,18 @@ export default function HelpFeedbackScreen({
                             icon={LightbulbIcon}
                             title="Suggest an idea"
                             description="Tell us what you'd like Aks to learn or do"
-                            onPress={suggestIdea}
+                            onPress={() =>
+                                navigation.navigate("SendFeedback")
+                            }
                         />
 
                         <ActionItem
-                            icon={FileEditIcon}
-                            title="Send feedback"
-                            description="Share your thoughts about the experience"
-                            onPress={sendFeedback}
+                            icon={SparklesIcon}
+                            title="Share your experience"
+                            description="Tell us what feels great or could be better"
+                            onPress={() =>
+                                navigation.navigate("SendFeedback")
+                            }
                         />
                     </View>
                 </Animated.View>
@@ -285,7 +269,8 @@ export default function HelpFeedbackScreen({
 
                     <Pressable
                         onPress={openEmail}
-                        className="flex-row items-center border-t border-border py-5"
+                        android_ripple={{ color: "#E5E5E5" }}
+                        className="flex-row items-center border-t border-border py-5 active:opacity-80"
                     >
                         <View className="mr-4 h-11 w-11 items-center justify-center rounded-2xl bg-surface">
                             <HugeiconsIcon
@@ -311,6 +296,13 @@ export default function HelpFeedbackScreen({
                                 Usually replies within 1–2 business days
                             </AppText>
                         </View>
+
+                        <HugeiconsIcon
+                            icon={ArrowRight01Icon}
+                            size={18}
+                            color="#737373"
+                            strokeWidth={1.6}
+                        />
                     </Pressable>
                 </Animated.View>
 
@@ -318,10 +310,7 @@ export default function HelpFeedbackScreen({
                     entering={FadeIn.duration(500).delay(450)}
                     className="mt-10 items-center"
                 >
-                    <AppText
-                        variant="caption"
-                        className="text-text-disabled"
-                    >
+                    <AppText className="text-[13px] font-medium text-text-disabled">
                         Aks.ai
                     </AppText>
 

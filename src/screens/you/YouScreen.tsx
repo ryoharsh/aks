@@ -394,14 +394,14 @@ export default function YouScreen({ navigation }: Props) {
                     className="mt-10 items-center"
                 >
                     <AppText
-                        variant="body"
+                        variant="caption"
                         className="text-text-low"
                     >
                         Aks.ai
                     </AppText>
 
                     <AppText
-                        variant="button"
+                        variant="caption"
                         className="mt-1 text-text-disabled"
                     >
                         Understand yourself, differently.

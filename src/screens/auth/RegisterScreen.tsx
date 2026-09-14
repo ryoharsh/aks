@@ -271,7 +271,7 @@ export default function RegisterScreen({ navigation }: Props) {
                             </Pressable>
                         </View>
 
-                        <LegalLinks navigation={navigation} />
+                        <LegalLinks />
                     </Animated.View>
                 </View>
             </ScrollView>

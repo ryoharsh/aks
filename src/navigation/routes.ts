@@ -4,13 +4,13 @@ export type RootStackParamList = {
   Auth: undefined;
   LegalAcceptance: undefined;
   Main: undefined;
+  Terms: undefined;
+  PrivacyPolicy: undefined;
 };
 
 export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
-  Terms: undefined;
-  PrivacyPolicy: undefined;
 };
 
 export type YouStackParamList = {
@@ -25,3 +25,10 @@ export type YouStackParamList = {
     HelpFeedback: undefined;
     Settings: undefined;
 };
+
+  export type HelpFeedbackStackParamList = {
+    HelpFeedbackHome: undefined;
+    FAQ: undefined;
+    ReportProblem: undefined;
+    SendFeedback: undefined;
+  };

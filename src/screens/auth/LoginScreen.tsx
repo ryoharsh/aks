@@ -257,7 +257,7 @@ export default function LoginScreen({ navigation }: Props) {
                             </Pressable>
                         </View>
 
-                        <LegalLinks navigation={navigation} />
+                        <LegalLinks />
                     </Animated.View>
                 </View>
             </ScrollView>

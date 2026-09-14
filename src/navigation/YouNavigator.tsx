@@ -10,9 +10,9 @@ import LearningsScreen from "@/screens/you/subscreens/LearningsScreen";
 import YourDataScreen from "@/screens/you/subscreens/YourDataScreen";
 import NotificationsScreen from "@/screens/you/subscreens/NotificationsScreen";
 import AppearanceScreen from "@/screens/you/subscreens/AppearanceScreen";
-import PrivacyScreen from "@/screens/you/subscreens/PrivacyScreen";
-import HelpFeedbackScreen from "@/screens/you/subscreens/HelpFeedbackScreen";
 import SettingsScreen from "@/screens/you/subscreens/SettingsScreen";
+import HelpFeedbackNavigator from "@/navigation/HelpFeedbackNavigator";
+import PrivacyNavigator from "@/navigation/PrivacyNavigator";
 
 const Stack = createNativeStackNavigator<YouStackParamList>();
 
@@ -62,12 +62,12 @@ export default function YouNavigator() {
 
             <Stack.Screen
                 name="Privacy"
-                component={PrivacyScreen}
+                component={PrivacyNavigator}
             />
 
             <Stack.Screen
                 name="HelpFeedback"
-                component={HelpFeedbackScreen}
+                component={HelpFeedbackNavigator}
             />
 
             <Stack.Screen

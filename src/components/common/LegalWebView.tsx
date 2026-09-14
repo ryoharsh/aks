@@ -1,9 +1,5 @@
 import React, { useState } from "react";
-import {
-    ActivityIndicator,
-    Pressable,
-    View,
-} from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { WebView } from "react-native-webview";
 import { HugeiconsIcon } from "@hugeicons/react-native";
@@ -26,15 +22,26 @@ export default function LegalWebView({
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
 
+    const handleLoadStart = () => {
+        setLoading(true);
+        setError(false);
+    };
+
+    const handleLoadEnd = () => {
+        setLoading(false);
+    };
+
+    const handleError = () => {
+        setLoading(false);
+        setError(true);
+    };
+
     return (
         <View className="flex-1 bg-background">
             <StatusBar style="dark" />
 
-            <View className="h-16 flex-row items-center border-b border-border px-6">
-                <IconButton
-                    onPress={onBack}
-                    className="mr-4"
-                >
+            <View className="h-16 flex-row items-center border-b border-border px-5 mt-10">
+                <IconButton onPress={onBack} className="mr-4">
                     <HugeiconsIcon
                         icon={ArrowLeftIcon}
                         size={22}
@@ -49,16 +56,7 @@ export default function LegalWebView({
                 </AppText>
             </View>
 
-            <View className="flex-1">
-                {loading && (
-                    <View className="absolute inset-0 z-10 items-center justify-center bg-background">
-                        <ActivityIndicator
-                            size="small"
-                            color="#171717"
-                        />
-                    </View>
-                )}
-
+            <View className="flex-1 overflow-hidden">
                 {error ? (
                     <View className="flex-1 items-center justify-center px-8">
                         <AppText
@@ -75,35 +73,62 @@ export default function LegalWebView({
                             Please check your internet connection and try
                             again.
                         </AppText>
+
+                        <View className="mt-6">
+                            <IconButton
+                                onPress={() => {
+                                    setError(false);
+                                    setLoading(true);
+                                }}
+                            >
+                                <AppText
+                                    variant="button"
+                                    className="text-text-high"
+                                >
+                                    Try again
+                                </AppText>
+                            </IconButton>
+                        </View>
                     </View>
                 ) : (
-                    <WebView
-                        source={{ uri: url }}
-                        style={{
-                            flex: 1,
-                            backgroundColor: "#F2F2F2",
-                        }}
-                        onLoadStart={() => {
-                            setLoading(true);
-                            setError(false);
-                        }}
-                        onLoadEnd={() => {
-                            setLoading(false);
-                        }}
-                        onError={(event) => {
-                            console.log(
-                                "WebView error:",
-                                event.nativeEvent,
-                            );
-                            setLoading(false);
-                            setError(true);
-                        }}
-                        showsVerticalScrollIndicator={false}
-                        showsHorizontalScrollIndicator={false}
-                        javaScriptEnabled
-                        domStorageEnabled
-                        bounces={false}
-                    />
+                    <View className="flex-1">
+                        <WebView
+                            key={url}
+                            source={{ uri: url }}
+                            style={{
+                                flex: 1,
+                            }}
+                            originWhitelist={["*"]}
+                            javaScriptEnabled
+                            domStorageEnabled
+                            sharedCookiesEnabled
+                            thirdPartyCookiesEnabled
+                            cacheEnabled
+                            startInLoadingState={false}
+                            showsVerticalScrollIndicator={false}
+                            showsHorizontalScrollIndicator={false}
+                            bounces={false}
+                            onLoadStart={handleLoadStart}
+                            onLoadEnd={handleLoadEnd}
+                            onError={handleError}
+                            onHttpError={(event) => {
+                                console.log(
+                                    "WebView HTTP error:",
+                                    event.nativeEvent.statusCode,
+                                    event.nativeEvent.description
+                                );
+                            }}
+                        />
+
+                        {loading && (
+                            <View className="absolute inset-0 items-center justify-center bg-background">
+                                <ActivityIndicator
+                                    size="small"
+                                    color="#171717"
+                                />
+                            </View>
+                        )}
+                    </View>
                 )}
             </View>
         </View>

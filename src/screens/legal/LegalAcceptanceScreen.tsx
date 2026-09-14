@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import {
-    Pressable,
     ScrollView,
     View,
 } from "react-native";
@@ -17,10 +16,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppText from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
+import Checkbox from "@/components/ui/Checkbox";
 import LogoMark from "@/components/common/LogoMark";
 import type { RootStackParamList } from "@/navigation/routes";
-import { HugeiconsIcon } from "@hugeicons/react-native";
-import { CheckIcon } from "@hugeicons/core-free-icons";
 
 type Props = NativeStackScreenProps<
     RootStackParamList,
@@ -133,24 +131,14 @@ export default function LegalAcceptanceScreen({
                             entering={FadeInUp.duration(500).delay(300)}
                             className="mt-6"
                         >
-                            <Pressable
-                                onPress={() =>
-                                    setAccepted((value) => !value)
-                                }
-                                className="flex-row items-start"
-                                hitSlop={8}
-                            >
-                                <View
-                                    className={
-                                        accepted
-                                            ? "mr-3 mt-0.5 size-5 items-center justify-center rounded-md border border-primary bg-primary"
-                                            : "mr-3 mt-0.5 size-5 items-center justify-center rounded-md border border-border-strong bg-surface"
-                                    }
-                                >
-                                    {accepted && (
-                                        <HugeiconsIcon icon={CheckIcon} size={13} color={"#fff"} />
-                                    )}
-                                </View>
+                            <View className="flex-row items-start">
+                                <Checkbox
+                                    checked={accepted}
+                                    onCheckedChange={setAccepted}
+                                    size="sm"
+                                    className="mr-3 mt-0.5"
+                                    accessibilityLabel="Accept Terms of Service and Privacy Policy"
+                                />
 
                                 <AppText
                                     variant="body"
@@ -160,7 +148,7 @@ export default function LegalAcceptanceScreen({
                                         variant="body"
                                         className="text-text-high underline"
                                         onPress={() =>
-                                            navigation.navigate("Auth")
+                                            navigation.navigate("Terms")
                                         }
                                     >
                                         Terms of Service
@@ -169,12 +157,15 @@ export default function LegalAcceptanceScreen({
                                     <AppText
                                         variant="body"
                                         className="text-text-high underline"
+                                        onPress={() =>
+                                            navigation.navigate("PrivacyPolicy")
+                                        }
                                     >
                                         Privacy Policy
                                     </AppText>
                                     .
                                 </AppText>
-                            </Pressable>
+                            </View>
                         </Animated.View>
                     </View>
 

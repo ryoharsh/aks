@@ -1,17 +1,13 @@
 import React from "react";
 import { Pressable, View } from "react-native";
-import type { NavigationProp } from "@react-navigation/native";
+import { useNavigation, type NavigationProp } from "@react-navigation/native";
 
 import AppText from "@/components/ui/Text";
-import type { AuthStackParamList } from "@/navigation/routes";
+import type { RootStackParamList } from "@/navigation/routes";
 
-type LegalLinksProps = {
-    navigation: NavigationProp<AuthStackParamList>;
-};
+export default function LegalLinks() {
+    const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
-export default function LegalLinks({
-    navigation,
-}: LegalLinksProps) {
     return (
         <View className="mt-5 flex-row flex-wrap justify-center px-4">
             <AppText

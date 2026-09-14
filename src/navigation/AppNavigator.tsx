@@ -6,6 +6,8 @@ import type { RootStackParamList } from "./routes";
 import SplashScreen from "@/screens/SplashScreen";
 import OnboardingScreen from "@/screens/OnboardingScreen";
 import LegalAcceptanceScreen from "@/screens/legal/LegalAcceptanceScreen";
+import TermsScreen from "@/screens/legal/TermsScreen";
+import PrivacyPolicyScreen from "@/screens/legal/PrivacyPolicyScreen";
 
 import AuthNavigator from "./AuthNavigator";
 import MainNavigator from "./MainNavigator";
@@ -51,6 +53,24 @@ export default function AppNavigator() {
       <Stack.Screen
         name="Main"
         component={MainNavigator}
+      />
+
+      <Stack.Screen
+        name="Terms"
+        component={TermsScreen}
+        options={{
+          presentation: "fullScreenModal",
+          animation: "slide_from_bottom",
+        }}
+      />
+
+      <Stack.Screen
+        name="PrivacyPolicy"
+        component={PrivacyPolicyScreen}
+        options={{
+          presentation: "fullScreenModal",
+          animation: "slide_from_bottom",
+        }}
       />
     </Stack.Navigator>
   );
