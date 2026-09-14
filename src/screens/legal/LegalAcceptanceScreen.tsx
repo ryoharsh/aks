@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
     Pressable,
-    SafeAreaView,
     ScrollView,
     View,
 } from "react-native";
@@ -12,6 +11,9 @@ import Animated, {
     FadeInDown,
     FadeInUp,
 } from "react-native-reanimated";
+
+
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppText from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
@@ -42,7 +44,7 @@ export default function LegalAcceptanceScreen({
 
             <Animated.View
                 entering={FadeIn.duration(500)}
-                className="flex-row items-center justify-between px-6 pt-16"
+                className="flex-row items-center justify-between px-6 pt-6"
             >
                 <LogoMark />
             </Animated.View>

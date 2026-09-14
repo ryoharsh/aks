@@ -52,8 +52,7 @@ export default function RegisterScreen({ navigation }: Props) {
     return (
         <KeyboardAvoidingView
             className="flex-1 bg-background"
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
+            behavior={Platform.OS === "ios" ? "padding" : undefined}>
             <StatusBar style="dark" />
 
             <Animated.View
