@@ -38,6 +38,8 @@ export type YouStackParamList = {
 
   export type YourDataStackParamList = {
     YourDataHome: undefined;
+    Conversations: undefined;
+    ConversationDetail: { conversationId: string };
     Reflections: undefined;
     CheckIns: undefined;
     Patterns: undefined;

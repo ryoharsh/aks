@@ -1,6 +1,8 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import YourDataScreen from "@/screens/you/data/YourDataScreen";
+import ConversationsScreen from "@/screens/you/data/ConversationsScreen";
+import ConversationDetailScreen from "@/screens/you/data/ConversationDetailScreen";
 import ReflectionsDataScreen from "@/screens/you/data/ReflectionsDataScreen";
 import CheckInsDataScreen from "@/screens/you/data/CheckInsDataScreen";
 import PatternsDataScreen from "@/screens/you/data/PatternsDataScreen";
@@ -20,6 +22,8 @@ export default function YourDataNavigator() {
             }}
         >
             <Stack.Screen name="YourDataHome" component={YourDataScreen} />
+            <Stack.Screen name="Conversations" component={ConversationsScreen} />
+            <Stack.Screen name="ConversationDetail" component={ConversationDetailScreen} />
             <Stack.Screen name="Reflections" component={ReflectionsDataScreen} />
             <Stack.Screen name="CheckIns" component={CheckInsDataScreen} />
             <Stack.Screen name="Patterns" component={PatternsDataScreen} />

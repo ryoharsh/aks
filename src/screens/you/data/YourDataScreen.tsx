@@ -9,6 +9,7 @@ import {
     ArrowLeft01Icon,
     ArrowRight01Icon,
     BookOpen01Icon,
+    Chat01Icon,
     CheckListIcon,
     Link01Icon,
     Note01Icon,
@@ -27,12 +28,18 @@ import type {
 } from "@/navigation/routes";
 
 type Props = NativeStackScreenProps<YourDataStackParamList, "YourDataHome">;
+type DataSummaryRoute =
+    | "Reflections"
+    | "CheckIns"
+    | "Patterns"
+    | "Experiments"
+    | "Learnings";
 type DataCount = {
     key: "reflections" | "checkIns" | "patterns" | "experiments" | "learnings";
     label: string;
     count: number;
     icon: IconSvgElement;
-    route: Exclude<keyof YourDataStackParamList, "YourDataHome">;
+    route: DataSummaryRoute;
 };
 
 const dataCounts: DataCount[] = [
@@ -91,6 +98,24 @@ export default function YourDataScreen({ navigation }: Props) {
                 </Animated.View>
 
                 <Animated.View entering={FadeInUp.duration(450).delay(220)} className="mt-9">
+                    <SectionLabel>CONVERSATIONS</SectionLabel>
+                    <Pressable
+                        onPress={() => navigation.navigate("Conversations")}
+                        android_ripple={{ color: "rgba(0, 0, 0, 0.06)" }}
+                        className="flex-row items-center rounded-[28px] border border-border bg-surface px-5 py-5"
+                    >
+                        <View className="mr-4 size-11 items-center justify-center rounded-2xl bg-background">
+                            <HugeiconsIcon icon={Chat01Icon} size={21} color={iconColor} />
+                        </View>
+                        <View className="flex-1 pr-3">
+                            <AppText variant="button" className="text-text-high">Your conversations with Aks</AppText>
+                            <AppText variant="caption" className="mt-1 text-text-low">Review the conversations you've had with Aks.</AppText>
+                        </View>
+                        <HugeiconsIcon icon={ArrowRight01Icon} size={19} color={iconColor} />
+                    </Pressable>
+                </Animated.View>
+
+                <Animated.View entering={FadeInUp.duration(450).delay(290)} className="mt-9">
                     <SectionLabel>DATA SOURCES</SectionLabel>
                     <View className="overflow-hidden rounded-[28px] border border-border bg-surface">
                         <SourceRow icon={UserCircleIcon} title="What you tell Aks" description="Reflections, check-ins, experiments, and other information you provide." iconColor={iconColor} />
@@ -98,7 +123,7 @@ export default function YourDataScreen({ navigation }: Props) {
                     </View>
                 </Animated.View>
 
-                <Animated.View entering={FadeInUp.duration(450).delay(290)} className="mt-9">
+                <Animated.View entering={FadeInUp.duration(450).delay(360)} className="mt-9">
                     <SectionLabel>YOUR CHOICE</SectionLabel>
                     <View className="rounded-[28px] border border-border bg-surface p-5">
                         <AppText variant="title" className="text-text-high">You decide what stays.</AppText>
@@ -110,7 +135,7 @@ export default function YourDataScreen({ navigation }: Props) {
                     </View>
                 </Animated.View>
 
-                <Animated.View entering={FadeInUp.duration(450).delay(360)} className="mt-6 rounded-[28px] border border-border bg-surface p-5">
+                <Animated.View entering={FadeInUp.duration(450).delay(430)} className="mt-6 rounded-[28px] border border-border bg-surface p-5">
                     <AppText variant="caption" className="tracking-[1.5px] text-text-low">A NOTE FROM AKS</AppText>
                     <AppText className="mt-3 leading-6 text-text-low">Your data is what makes Aks personal. It should also remain understandable and under your control.</AppText>
                 </Animated.View>
