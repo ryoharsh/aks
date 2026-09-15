@@ -6,6 +6,7 @@ export type RootStackParamList = {
   Auth: undefined;
   LegalAcceptance: undefined;
   Main: undefined;
+  AiConversation: undefined;
   Terms: undefined;
   PrivacyPolicy: undefined;
 };

@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
   Image,
   NativeScrollEvent,
@@ -28,6 +30,7 @@ import Animated, {
 import MirrorScreen from "@/screens/mirror/MirrorScreen";
 import TimelineScreen from "@/screens/timeline/TimelineScreen";
 import YouNavigator from "./YouNavigator";
+import type { RootStackParamList } from "./routes";
 
 type NavIconProps = {
   active: boolean;
@@ -69,6 +72,8 @@ function NavIcon({ active, children }: NavIconProps) {
 }
 
 export default function MainNavigator() {
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState(1);
@@ -88,6 +93,15 @@ export default function MainNavigator() {
       y: 0,
       animated: true,
     });
+  };
+
+  const handleMirrorPress = () => {
+    if (currentIndex === 1) {
+      navigation.navigate("AiConversation");
+      return;
+    }
+
+    goToPage(1);
   };
 
   const handleMomentumScrollEnd = (
@@ -149,7 +163,10 @@ export default function MainNavigator() {
             style={{ width: SCREEN_WIDTH }}
             className="flex-1"
           >
-            <MirrorScreen shouldEnter={openedPages.has(1)} />
+            <MirrorScreen
+              shouldEnter={openedPages.has(1)}
+              isActive={currentIndex === 1}
+            />
           </View>
 
           <View
@@ -208,7 +225,7 @@ export default function MainNavigator() {
             </Pressable>
 
             <Pressable
-              onPress={() => goToPage(1)}
+              onPress={handleMirrorPress}
               hitSlop={12}
               className="h-12 w-12 items-center justify-center"
             >

@@ -8,6 +8,7 @@ import OnboardingScreen from "@/screens/OnboardingScreen";
 import LegalAcceptanceScreen from "@/screens/legal/LegalAcceptanceScreen";
 import TermsScreen from "@/screens/legal/TermsScreen";
 import PrivacyPolicyScreen from "@/screens/legal/PrivacyPolicyScreen";
+import AiConversationScreen from "@/screens/mirror/AiConversationScreen";
 
 import AuthNavigator from "./AuthNavigator";
 import MainNavigator from "./MainNavigator";
@@ -53,6 +54,14 @@ export default function AppNavigator() {
       <Stack.Screen
         name="Main"
         component={MainNavigator}
+      />
+
+      <Stack.Screen
+        name="AiConversation"
+        component={AiConversationScreen}
+        options={{
+          animation: "slide_from_bottom",
+        }}
       />
 
       <Stack.Screen

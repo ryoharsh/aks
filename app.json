@@ -33,7 +33,8 @@
         }
       ],
       "expo-splash-screen",
-      "expo-video"
+      "expo-video",
+      ["expo-audio", {"microphonePermission": "Allow Aks to record what you want to reflect on.", "recordAudioAndroid": true, "enableBackgroundRecording": false}]
     ]
   }
 }
