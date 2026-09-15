@@ -170,7 +170,11 @@ export default function YouScreen({ navigation }: Props) {
                     className="mt-8"
                 >
                     <Pressable
-                        onPress={() => navigation.navigate("Patterns")}
+                        onPress={() =>
+                            navigation.navigate("YourData", {
+                                screen: "Patterns",
+                            })
+                        }
                         className="rounded-[28px] border border-border bg-surface p-5"
                     >
                         <View className="flex-row items-center justify-between">
@@ -215,7 +219,11 @@ export default function YouScreen({ navigation }: Props) {
                     className="mt-4"
                 >
                     <Pressable
-                        onPress={() => navigation.navigate("Experiments")}
+                        onPress={() =>
+                            navigation.navigate("YourData", {
+                                screen: "Experiments",
+                            })
+                        }
                         className="rounded-[28px] border border-border bg-surface p-5"
                     >
                         <View className="flex-row items-center justify-between">
@@ -260,7 +268,11 @@ export default function YouScreen({ navigation }: Props) {
                     className="mt-4"
                 >
                     <Pressable
-                        onPress={() => navigation.navigate("Learnings")}
+                        onPress={() =>
+                            navigation.navigate("YourData", {
+                                screen: "Learnings",
+                            })
+                        }
                         className="rounded-[28px] border border-border bg-surface p-5"
                     >
                         <View className="flex-row items-center justify-between">
@@ -313,7 +325,11 @@ export default function YouScreen({ navigation }: Props) {
                             icon={SparklesIcon}
                             title="Patterns"
                             description="Things Aks has noticed"
-                            onPress={() => navigation.navigate("Patterns")}
+                            onPress={() =>
+                                navigation.navigate("YourData", {
+                                    screen: "Patterns",
+                                })
+                            }
                         />
 
                         <View className="h-px bg-border" />
@@ -322,7 +338,11 @@ export default function YouScreen({ navigation }: Props) {
                             icon={Target01Icon}
                             title="Experiments"
                             description="What you're currently testing"
-                            onPress={() => navigation.navigate("Experiments")}
+                            onPress={() =>
+                                navigation.navigate("YourData", {
+                                    screen: "Experiments",
+                                })
+                            }
                         />
 
                         <View className="h-px bg-border" />

@@ -4,15 +4,12 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import type { YouStackParamList } from "./routes";
 
 import YouScreen from "@/screens/you/YouScreen";
-import PatternsScreen from "@/screens/you/subscreens/PatternsScreen";
-import ExperimentsScreen from "@/screens/you/subscreens/ExperimentsScreen";
-import LearningsScreen from "@/screens/you/subscreens/LearningsScreen";
-import YourDataScreen from "@/screens/you/subscreens/YourDataScreen";
-import NotificationsScreen from "@/screens/you/subscreens/NotificationsScreen";
-import AppearanceScreen from "@/screens/you/subscreens/AppearanceScreen";
-import SettingsScreen from "@/screens/you/subscreens/SettingsScreen";
+import NotificationsScreen from "@/screens/you/notification/NotificationsScreen";
+import AppearanceScreen from "@/screens/you/appearance/AppearanceScreen";
 import HelpFeedbackNavigator from "@/navigation/HelpFeedbackNavigator";
 import PrivacyNavigator from "@/navigation/PrivacyNavigator";
+import YourDataNavigator from "@/navigation/YourDataNavigator";
+import SettingsNavigator from "@/navigation/SettingsNavigator";
 
 const Stack = createNativeStackNavigator<YouStackParamList>();
 
@@ -31,23 +28,8 @@ export default function YouNavigator() {
             />
 
             <Stack.Screen
-                name="Patterns"
-                component={PatternsScreen}
-            />
-
-            <Stack.Screen
-                name="Experiments"
-                component={ExperimentsScreen}
-            />
-
-            <Stack.Screen
-                name="Learnings"
-                component={LearningsScreen}
-            />
-
-            <Stack.Screen
                 name="YourData"
-                component={YourDataScreen}
+                component={YourDataNavigator}
             />
 
             <Stack.Screen
@@ -72,7 +54,7 @@ export default function YouNavigator() {
 
             <Stack.Screen
                 name="Settings"
-                component={SettingsScreen}
+                component={SettingsNavigator}
             />
         </Stack.Navigator>
     );
