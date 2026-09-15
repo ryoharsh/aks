@@ -13,7 +13,11 @@ import SettingsNavigator from "@/navigation/SettingsNavigator";
 
 const Stack = createNativeStackNavigator<YouStackParamList>();
 
-export default function YouNavigator() {
+type YouNavigatorProps = {
+    shouldEnter: boolean;
+};
+
+export default function YouNavigator({ shouldEnter }: YouNavigatorProps) {
     return (
         <Stack.Navigator
             initialRouteName="YouHome"
@@ -24,8 +28,11 @@ export default function YouNavigator() {
         >
             <Stack.Screen
                 name="YouHome"
-                component={YouScreen}
-            />
+            >
+                {(props) => (
+                    <YouScreen {...props} shouldEnter={shouldEnter} />
+                )}
+            </Stack.Screen>
 
             <Stack.Screen
                 name="YourData"

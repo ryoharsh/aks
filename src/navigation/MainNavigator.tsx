@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
   Moon01Icon,
@@ -71,8 +72,13 @@ export default function MainNavigator() {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState(1);
+  const [openedPages, setOpenedPages] = useState<ReadonlySet<number>>(
+    () => new Set([1]),
+  );
+  const [pagerScrollEnabled, setPagerScrollEnabled] = useState(true);
 
   const background = useResolveClassNames("bg-background");
+  const backgroundColor = background.color ?? "#F2F2F2";
   const activeColor = useResolveClassNames("text-text-high");
   const inactiveColor = useResolveClassNames("text-text-low");
 
@@ -82,8 +88,6 @@ export default function MainNavigator() {
       y: 0,
       animated: true,
     });
-
-    setCurrentIndex(index);
   };
 
   const handleMomentumScrollEnd = (
@@ -93,32 +97,30 @@ export default function MainNavigator() {
     const index = Math.round(offsetX / SCREEN_WIDTH);
 
     setCurrentIndex(index);
-  };
+    setOpenedPages((previous) => {
+      if (previous.has(index)) {
+        return previous;
+      }
 
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      scrollRef.current?.scrollTo({
-        x: SCREEN_WIDTH,
-        y: 0,
-        animated: false,
-      });
+      const next = new Set(previous);
+      next.add(index);
+      return next;
     });
-
-    return () => cancelAnimationFrame(frame);
-  }, [SCREEN_WIDTH]);
+  };
 
   return (
     <SafeAreaView
       edges={["top"]}
       style={{
         flex: 1,
-        backgroundColor: background.color,
+        backgroundColor,
       }}
     >
       <View className="flex-1">
         <ScrollView
           ref={scrollRef}
           horizontal
+          scrollEnabled={pagerScrollEnabled}
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           showsVerticalScrollIndicator={false}
@@ -126,6 +128,7 @@ export default function MainNavigator() {
           decelerationRate="fast"
           scrollEventThrottle={16}
           removeClippedSubviews={false}
+          contentOffset={{ x: SCREEN_WIDTH, y: 0 }}
           onMomentumScrollEnd={handleMomentumScrollEnd}
           style={{ flex: 1 }}
           contentContainerStyle={{
@@ -136,30 +139,47 @@ export default function MainNavigator() {
             style={{ width: SCREEN_WIDTH }}
             className="flex-1"
           >
-            <TimelineScreen />
+            <TimelineScreen
+              shouldEnter={openedPages.has(0)}
+              onFilterGestureChange={setPagerScrollEnabled}
+            />
           </View>
 
           <View
             style={{ width: SCREEN_WIDTH }}
             className="flex-1"
           >
-            <MirrorScreen />
+            <MirrorScreen shouldEnter={openedPages.has(1)} />
           </View>
 
           <View
             style={{ width: SCREEN_WIDTH }}
             className="flex-1"
           >
-            <YouNavigator />
+            <YouNavigator shouldEnter={openedPages.has(2)} />
           </View>
         </ScrollView>
 
         <SafeAreaView
           edges={["bottom"]}
           style={{
-            backgroundColor: background.color,
+            backgroundColor,
+            zIndex: 1,
           }}
         >
+          <LinearGradient
+            pointerEvents="none"
+            colors={["transparent", backgroundColor]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={{
+              position: "absolute",
+              top: -20,
+              right: 0,
+              left: 0,
+              height: 20,
+            }}
+          />
           <Animated.View
             entering={FadeInUp.duration(650)
               .delay(100)
