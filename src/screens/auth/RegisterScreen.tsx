@@ -1,6 +1,10 @@
 import { useState } from "react";
+import { Alert } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type {
+    NativeStackNavigationProp,
+    NativeStackScreenProps,
+} from "@react-navigation/native-stack";
 import Animated, {
     FadeIn,
     FadeInDown,
@@ -19,8 +23,12 @@ import {
 import AppText from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
 import LogoMark from "@/components/common/LogoMark";
-import type { AuthStackParamList } from "@/navigation/routes";
+import type {
+    AuthStackParamList,
+    RootStackParamList,
+} from "@/navigation/routes";
 import LegalLinks from "@/components/common/LegalLinks";
+import { sendMagicLink, signInWithProvider } from "@/lib/auth";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Register">;
 
@@ -38,16 +46,48 @@ export default function RegisterScreen({ navigation }: Props) {
 
         try {
             setLoading(true);
+            const { error } = await sendMagicLink(email, {
+                shouldCreateUser: true,
+                fullName: name,
+            });
+
+            if (error) throw error;
+
+            Alert.alert(
+                "Check your email",
+                "Use the secure link we sent to finish creating your account.",
+            );
+        } catch (error) {
+            Alert.alert(
+                "Unable to create account",
+                error instanceof Error ? error.message : "Please try again.",
+            );
         } finally {
             setLoading(false);
         }
     };
 
-    const handleGoogle = () => { };
+    const handleOAuth = async (provider: "google" | "facebook" | "github") => {
+        if (loading) return;
 
-    const handleFacebook = () => { };
+        try {
+            setLoading(true);
+            const { error } = await signInWithProvider(provider);
 
-    const handleGithub = () => { };
+            if (error) throw error;
+
+            navigation
+                .getParent<NativeStackNavigationProp<RootStackParamList>>()
+                ?.navigate("LegalAcceptance");
+        } catch (error) {
+            Alert.alert(
+                "Unable to sign in",
+                error instanceof Error ? error.message : "Please try again.",
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <KeyboardAvoidingView
@@ -185,7 +225,7 @@ export default function RegisterScreen({ navigation }: Props) {
                         >
                             <View className="mb-3 flex-row gap-3">
                                 <Button
-                                    onPress={handleGoogle}
+                                    onPress={() => handleOAuth("google")}
                                     variant="secondary"
                                     className="flex-1 rounded-full bg-surface"
                                 >
@@ -204,7 +244,7 @@ export default function RegisterScreen({ navigation }: Props) {
                                 </Button>
 
                                 <Button
-                                    onPress={handleFacebook}
+                                    onPress={() => handleOAuth("facebook")}
                                     variant="secondary"
                                     className="flex-1 rounded-full bg-surface"
                                 >
@@ -224,7 +264,7 @@ export default function RegisterScreen({ navigation }: Props) {
                             </View>
 
                             <Button
-                                onPress={handleGithub}
+                                onPress={() => handleOAuth("github")}
                                 variant="secondary"
                                 className="rounded-full bg-surface"
                             >

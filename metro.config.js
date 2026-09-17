@@ -4,6 +4,9 @@ const { withUniwindConfig } = require('uniwind/metro');
 
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
+config.resolver.assetExts = [
+  ...new Set([...config.resolver.assetExts, 'html', 'lottie']),
+];
 
 module.exports = withUniwindConfig(config, {  
   // relative path to your global.css file (from previous step)

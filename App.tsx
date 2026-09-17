@@ -2,8 +2,10 @@ import { NavigationContainer } from '@react-navigation/native';
 import AppNavigator from './src/navigation/AppNavigator';
 import { useFonts } from 'expo-font';
 import { useEffect } from 'react';
+import * as Linking from 'expo-linking';
 import * as SplashScreen from "expo-splash-screen";
 import { ThemeProvider } from '@/theme/ThemeProvider';
+import { exchangeAuthCallback } from '@/lib/auth';
 import './globals.css';
 
 SplashScreen.preventAutoHideAsync();
@@ -22,6 +24,22 @@ export default function App() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
+
+  useEffect(() => {
+    const handleUrl = ({ url }: { url: string }) => {
+      void exchangeAuthCallback(url);
+    };
+
+    const subscription = Linking.addEventListener('url', handleUrl);
+
+    void Linking.getInitialURL().then((url) => {
+      if (url) {
+        void exchangeAuthCallback(url);
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   if (!fontsLoaded && !fontError) {
     return null;

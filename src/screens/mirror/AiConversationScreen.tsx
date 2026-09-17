@@ -1,269 +1,561 @@
-import { useRef, useState } from "react";
+import React, {
+    forwardRef,
+    useCallback,
+    useEffect,
+    useImperativeHandle,
+    useRef,
+    useState,
+} from "react";
 import {
-    FlatList,
+    Alert,
+    Image,
     KeyboardAvoidingView,
     Platform,
     Pressable,
+    ScrollView,
     TextInput,
     View,
 } from "react-native";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+
+import {
+    AudioModule,
+    RecordingPresets,
+    setAudioModeAsync,
+    useAudioRecorder,
+    useAudioRecorderState,
+} from "expo-audio";
+
+import {
+    DotLottie,
+    type Dotlottie,
+} from "@lottiefiles/dotlottie-react-native";
+
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
-    ArrowLeft01Icon,
     ArrowUp01Icon,
+    Cancel01Icon,
+    CommandIcon,
+    Menu01Icon,
     Mic01Icon,
 } from "@hugeicons/core-free-icons";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+
 import { useResolveClassNames } from "uniwind";
 
-import IconButton from "@/components/ui/IconButton";
-import AppText from "@/components/ui/Text";
-import type { RootStackParamList } from "@/navigation/routes";
-import {
-    submitToAks,
-    type MirrorMessage,
-} from "@/screens/mirror/MirrorScreen";
+import Animated, {
+    FadeInDown,
+    FadeOutDown,
+    LinearTransition,
+} from "react-native-reanimated";
+
 import { cn } from "@/lib/cn";
+import AppText from "@/components/ui/Text";
+import IconButton from "@/components/ui/IconButton";
 
-type Props = NativeStackScreenProps<RootStackParamList, "AiConversation">;
+const MASCOT_FALLBACK = require("@assets/splash-icon.png");
 
-type ProcessingState = "idle" | "thinking" | "error";
+const MOTION_ASSETS = {
+    idle: require("@assets/lottie/idle.lottie"),
+    launch: require("@assets/lottie/launch.lottie"),
+    provoke: require("@assets/lottie/provoke.lottie"),
+    thinking: require("@assets/lottie/thinking.lottie"),
+} as const;
 
-const openingMessages: MirrorMessage[] = [
+type MotionAnimation = keyof typeof MOTION_ASSETS;
+
+export type AksConversationEvent =
+    | "typing"
+    | "speechStart"
+    | "send"
+    | "responseStart"
+    | "observation"
+    | "positive"
+    | "responseEnd"
+    | "cancel"
+    | "inputEnd";
+
+export type AksMotionHandle = {
+    conversation: (event: AksConversationEvent) => void;
+};
+
+const EVENT_ANIMATIONS: Record<
+    AksConversationEvent,
+    MotionAnimation
+> = {
+    typing: "thinking",
+    speechStart: "provoke",
+    send: "launch",
+    responseStart: "launch",
+    observation: "thinking",
+    positive: "launch",
+    responseEnd: "idle",
+    cancel: "idle",
+    inputEnd: "idle",
+};
+
+const AksMotion = forwardRef<
+    AksMotionHandle,
     {
-        id: "conversation-opening",
-        role: "aks",
-        content: "What have you been noticing about yourself lately?",
-    },
-];
+        onReady?: () => void;
+    }
+>(function AksMotion({ onReady }, ref) {
+    const animationRef = useRef<Dotlottie>(null);
 
-function ConversationMessage({ message }: { message: MirrorMessage }) {
-    const fromUser = message.role === "user";
+    const currentAnimation = useRef<MotionAnimation>("idle");
+
+    const [animation, setAnimation] =
+        useState<MotionAnimation>("idle");
+
+    const changeAnimation = useCallback(
+        (nextAnimation: MotionAnimation) => {
+            if (currentAnimation.current === nextAnimation) {
+                animationRef.current?.play();
+                return;
+            }
+
+            currentAnimation.current = nextAnimation;
+
+            setAnimation(nextAnimation);
+        },
+        [],
+    );
+
+    useImperativeHandle(
+        ref,
+        () => ({
+            conversation: (event) => {
+                changeAnimation(EVENT_ANIMATIONS[event]);
+            },
+        }),
+        [changeAnimation],
+    );
+
+    const handleLoad = useCallback(() => {
+        onReady?.();
+
+        animationRef.current?.play();
+    }, [onReady]);
 
     return (
-        <View className={cn("mb-6", fromUser ? "items-end" : "items-start")}>
-            {!fromUser ? (
-                <AppText
-                    variant="caption"
-                    className="mb-2 tracking-[1.2px] text-text-disabled"
+        <DotLottie
+            ref={animationRef}
+            source={MOTION_ASSETS[animation]}
+            autoplay={false}
+            style={{ flex: 1 }}
+            onLoad={handleLoad}
+        />
+    );
+});
+
+AksMotion.displayName = "AksMotion";
+
+export default function MirrorConversationScreen() {
+    const motionRef = useRef<AksMotionHandle>(null);
+
+    const [ready, setReady] = useState(false);
+
+    const handleMotionReady = useCallback(() => {
+        setReady(true);
+    }, []);
+
+    return (
+        <KeyboardAvoidingView
+            className="flex-1 bg-white-bg pt-24 pb-7"
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+            <View className="flex-1">
+                <ScrollView
+                    className="flex-1"
+                    contentContainerClassName="flex-grow px-5 pb-8"
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
                 >
-                    AKS
-                </AppText>
-            ) : null}
-            <View
-                className={cn(
-                    "max-w-[88%]",
-                    fromUser
-                        ? "rounded-3xl rounded-br-md bg-primary px-4 py-3"
-                        : "pr-5",
-                )}
-            >
-                <AppText
-                    className={cn(
-                        "leading-6",
-                        fromUser
-                            ? "text-primary-foreground"
-                            : "text-text-high",
-                    )}
-                >
-                    {message.content}
-                </AppText>
+                    <View className="flex-1">
+                        <View>
+                            <AppText
+                                variant="body"
+                                className="text-text-medium"
+                            >
+                                Hey, Aks 👋
+                            </AppText>
+
+                            <AppText
+                                variant="title"
+                                className="mt-3 max-w-82.5 font-satoshi-medium"
+                            >
+                                What’s been on your mind?
+                            </AppText>
+                        </View>
+
+                        <View className="flex-1 items-center justify-center py-10">
+                            <View className="relative h-62.5 w-62.5 overflow-hidden">
+                                <Image
+                                    source={MASCOT_FALLBACK}
+                                    resizeMode="contain"
+                                    className={cn(
+                                        "absolute inset-0 h-full w-full",
+                                        ready && "opacity-0",
+                                    )}
+                                />
+
+                                <View className="absolute inset-0">
+                                    <AksMotion
+                                        ref={motionRef}
+                                        onReady={handleMotionReady}
+                                    />
+                                </View>
+                            </View>
+
+                            <AppText
+                                variant="body"
+                                className="mt-5 max-w-70 text-center text-text-low"
+                            >
+                                You don’t need to organize your thoughts
+                                first. Just start talking.
+                            </AppText>
+                        </View>
+                    </View>
+                </ScrollView>
+
+                <MirrorConversationBottomBar
+                    motionRef={motionRef}
+                />
             </View>
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 
-export default function AiConversationScreen({ navigation }: Props) {
-    const listRef = useRef<FlatList<MirrorMessage>>(null);
-    const [messages, setMessages] =
-        useState<MirrorMessage[]>(openingMessages);
-    const [draft, setDraft] = useState("");
-    const [processing, setProcessing] =
-        useState<ProcessingState>("idle");
+export function MirrorConversationBottomBar({
+    motionRef,
+}: {
+    motionRef: React.RefObject<AksMotionHandle | null>;
+}) {
+    const [inputVisible, setInputVisible] = useState(false);
+    const [message, setMessage] = useState("");
+    const [menuOpen, setMenuOpen] = useState(false);
 
-    const highColor =
-        useResolveClassNames("text-text-high").color ?? "#171717";
-    const lowColor =
-        useResolveClassNames("text-text-low").color ?? "#737373";
-    const foregroundColor =
-        useResolveClassNames("text-primary-foreground").color ?? "#FFFFFF";
+    const audioRecorder = useAudioRecorder(
+        RecordingPresets.HIGH_QUALITY,
+    );
 
-    const sendMessage = () => {
-        const text = draft.trim();
-        if (!text || processing === "thinking") return;
+    const recorderState = useAudioRecorderState(
+        audioRecorder,
+        250,
+    );
 
-        setMessages((current) => [
-            ...current,
-            {
-                id: `${Date.now()}-user`,
-                role: "user",
-                content: text,
-            },
-        ]);
-        setDraft("");
-        setProcessing("thinking");
-        requestAnimationFrame(() =>
-            listRef.current?.scrollToEnd({ animated: true }),
+    const responseTimers = useRef<
+        ReturnType<typeof setTimeout>[]
+    >([]);
+
+    const high = useResolveClassNames("text-text-high");
+    const low = useResolveClassNames("text-text-low");
+
+    const clearResponseTimers = useCallback(() => {
+        responseTimers.current.forEach(clearTimeout);
+        responseTimers.current = [];
+    }, []);
+
+    const playResponseLifecycle = useCallback(() => {
+        clearResponseTimers();
+
+        motionRef.current?.conversation("send");
+
+        responseTimers.current = [
+            setTimeout(() => {
+                motionRef.current?.conversation(
+                    "responseStart",
+                );
+            }, 180),
+
+            setTimeout(() => {
+                motionRef.current?.conversation(
+                    "responseEnd",
+                );
+            }, 1400),
+        ];
+    }, [clearResponseTimers, motionRef]);
+
+    useEffect(() => {
+        return () => {
+            clearResponseTimers();
+
+            if (!recorderState.isRecording) {
+                return;
+            }
+
+            void audioRecorder.stop().finally(() => {
+                void setAudioModeAsync({
+                    allowsRecording: false,
+                });
+            });
+        };
+    }, [
+        audioRecorder,
+        recorderState.isRecording,
+        clearResponseTimers,
+    ]);
+
+    const handleMessageChange = useCallback(
+        (value: string) => {
+            setMessage(value);
+
+            motionRef.current?.conversation(
+                value.trim()
+                    ? "typing"
+                    : "inputEnd",
+            );
+        },
+        [motionRef],
+    );
+
+    const handleSend = useCallback(() => {
+        const value = message.trim();
+
+        if (!value) {
+            return;
+        }
+
+        setMessage("");
+
+        playResponseLifecycle();
+    }, [message, playResponseLifecycle]);
+
+    const startRecording = useCallback(async () => {
+        try {
+            const permission =
+                await AudioModule.requestRecordingPermissionsAsync();
+
+            if (!permission.granted) {
+                Alert.alert(
+                    "Microphone unavailable",
+                    "Microphone access is needed to share a voice reflection.",
+                );
+
+                return;
+            }
+
+            await setAudioModeAsync({
+                allowsRecording: true,
+                allowsBackgroundRecording: false,
+                playsInSilentMode: true,
+            });
+
+            await audioRecorder.prepareToRecordAsync();
+
+            audioRecorder.record();
+
+            motionRef.current?.conversation(
+                "speechStart",
+            );
+        } catch {
+            Alert.alert(
+                "Couldn’t start listening",
+                "Please try again, or share what’s on your mind in text.",
+            );
+        }
+    }, [audioRecorder, motionRef]);
+
+    const stopRecording = useCallback(async () => {
+        try {
+            await audioRecorder.stop();
+
+            await setAudioModeAsync({
+                allowsRecording: false,
+            });
+
+            motionRef.current?.conversation(
+                "inputEnd",
+            );
+
+            playResponseLifecycle();
+        } catch {
+            motionRef.current?.conversation(
+                "cancel",
+            );
+        }
+    }, [
+        audioRecorder,
+        motionRef,
+        playResponseLifecycle,
+    ]);
+
+    const toggleInput = useCallback(() => {
+        setInputVisible((visible) => !visible);
+        setMenuOpen(false);
+    }, []);
+
+    const cancelInput = useCallback(() => {
+        setInputVisible(false);
+        setMenuOpen(false);
+        setMessage("");
+
+        motionRef.current?.conversation(
+            "cancel",
         );
+    }, [motionRef]);
 
-        void submitToAks({
-            kind: "text",
-            text,
-            createdAt: new Date().toISOString(),
-        })
-            .then(() => setProcessing("idle"))
-            .catch(() => setProcessing("error"));
-    };
+    const toggleMenu = useCallback(() => {
+        setMenuOpen((open) => !open);
+        setInputVisible(false);
+    }, []);
+
+    const isRecording = recorderState.isRecording;
+    const hasMessage = Boolean(message.trim());
 
     return (
-        <View className="flex-1 bg-background">
-            <Animated.View
-                entering={FadeInDown.duration(350)}
-                className="h-16 flex-row items-center border-b border-border px-5"
-            >
-                <IconButton
-                    accessibilityLabel="Close conversation"
-                    onPress={() => navigation.goBack()}
-                    className="mr-3"
+        <View className="px-5 pb-3">
+            {inputVisible && (
+                <Animated.View
+                    entering={FadeInDown.duration(220)}
+                    exiting={FadeOutDown.duration(180)}
+                    layout={LinearTransition.duration(220)}
+                    className="absolute bottom-22 left-4 right-4 z-10"
                 >
-                    <HugeiconsIcon
-                        icon={ArrowLeft01Icon}
-                        size={22}
-                        color={highColor}
-                    />
-                </IconButton>
-                <View className="flex-1">
-                    <AppText variant="title" className="text-[18px] text-text-high">
-                        Aks
-                    </AppText>
-                    <AppText variant="caption" className="mt-0.5 text-text-low">
-                        A quiet place to notice what repeats
-                    </AppText>
-                </View>
-            </Animated.View>
-
-            <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : undefined}
-                className="flex-1"
-            >
-                <FlatList
-                    ref={listRef}
-                    data={messages}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                        <ConversationMessage message={item} />
-                    )}
-                    showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="handled"
-                    keyboardDismissMode="interactive"
-                    contentContainerClassName="flex-grow px-5 pb-6 pt-8"
-                    ListHeaderComponent={
-                        <Animated.View
-                            entering={FadeIn.duration(350)}
-                            className="mb-10"
-                        >
-                            <AppText
-                                variant="caption"
-                                className="tracking-[1.5px] text-text-low"
-                            >
-                                CONVERSATION
-                            </AppText>
-                            <AppText
-                                variant="display"
-                                className="mt-3 text-[28px] leading-9 text-text-high"
-                            >
-                                Talk it through.
-                            </AppText>
-                            <AppText className="mt-3 max-w-[320px] text-text-low">
-                                Share a thought, a moment, or something you want
-                                to understand. Aks will organize only what you
-                                choose to provide.
-                            </AppText>
-                        </Animated.View>
-                    }
-                    ListFooterComponent={
-                        <View className="pb-2">
-                            {processing === "thinking" ? (
-                                <Animated.View entering={FadeIn.duration(180)}>
-                                    <AppText className="text-text-low">
-                                        Finding the signal…
-                                    </AppText>
-                                </Animated.View>
-                            ) : null}
-                            {processing === "error" ? (
-                                <Animated.View
-                                    entering={FadeIn.duration(180)}
-                                    className="rounded-3xl border border-border bg-surface p-4"
-                                >
-                                    <AppText
-                                        variant="button"
-                                        className="text-text-high"
-                                    >
-                                        Aks isn’t connected yet.
-                                    </AppText>
-                                    <AppText className="mt-1 text-text-low">
-                                        This message wasn’t saved or processed.
-                                    </AppText>
-                                    <Pressable
-                                        onPress={() => setProcessing("idle")}
-                                        className="mt-3 self-start py-1"
-                                    >
-                                        <AppText
-                                            variant="button"
-                                            className="text-text-high"
-                                        >
-                                            Dismiss
-                                        </AppText>
-                                    </Pressable>
-                                </Animated.View>
-                            ) : null}
-                        </View>
-                    }
-                />
-
-                <View className="border-t border-border bg-background px-5 pb-4 pt-3">
                     <View className="min-h-14 flex-row items-end rounded-3xl border border-border bg-surface p-1.5 pl-4">
                         <TextInput
-                            value={draft}
-                            onChangeText={setDraft}
+                            value={message}
+                            onChangeText={
+                                handleMessageChange
+                            }
                             placeholder="Tell Aks what’s on your mind…"
-                            placeholderTextColor={lowColor}
+                            placeholderTextColor={
+                                low.color
+                            }
                             multiline
                             maxLength={1200}
+                            returnKeyType="default"
                             className="max-h-28 min-h-11 flex-1 py-2 font-satoshi text-[15px] leading-5 text-text-high"
                         />
-                        {draft.trim() ? (
+
+                        {hasMessage ? (
                             <IconButton
                                 accessibilityLabel="Send message"
-                                onPress={sendMessage}
-                                disabled={processing === "thinking"}
-                                className="ml-2 bg-primary"
+                                onPress={handleSend}
+                                className="bg-primary"
                             >
                                 <HugeiconsIcon
-                                    icon={ArrowUp01Icon}
-                                    size={19}
-                                    color={foregroundColor}
-                                    strokeWidth={2}
+                                    icon={
+                                        ArrowUp01Icon
+                                    }
+                                    size={20}
+                                    color="#fff"
                                 />
                             </IconButton>
                         ) : (
                             <IconButton
-                                accessibilityLabel="Voice input is available from Mirror"
-                                disabled
-                                className="ml-2 bg-background"
+                                accessibilityLabel={
+                                    isRecording
+                                        ? "Stop listening"
+                                        : "Start listening"
+                                }
+                                onPress={
+                                    isRecording
+                                        ? stopRecording
+                                        : startRecording
+                                }
+                                className={cn(
+                                    "ml-2 bg-background",
+                                    isRecording &&
+                                    "bg-primary/15",
+                                )}
                             >
                                 <HugeiconsIcon
-                                    icon={Mic01Icon}
+                                    icon={
+                                        isRecording
+                                            ? Cancel01Icon
+                                            : Mic01Icon
+                                    }
                                     size={20}
-                                    color={lowColor}
+                                    color={
+                                        high.color
+                                    }
                                     strokeWidth={1.8}
                                 />
                             </IconButton>
                         )}
                     </View>
-                </View>
-            </KeyboardAvoidingView>
+                </Animated.View>
+            )}
+
+            {menuOpen && (
+                <Animated.View
+                    entering={FadeInDown.duration(180)}
+                    exiting={FadeOutDown.duration(140)}
+                    className="absolute bottom-22 right-4 z-10 min-w-52 overflow-hidden rounded-2xl border border-border bg-surface"
+                >
+                    <Pressable
+                        onPress={() =>
+                            setMenuOpen(false)
+                        }
+                        className="px-5 py-4"
+                    >
+                        <AppText
+                            variant="body"
+                            className="text-text-high"
+                        >
+                            New conversation
+                        </AppText>
+                    </Pressable>
+
+                    <View className="h-px bg-border" />
+
+                    <Pressable
+                        onPress={() =>
+                            setMenuOpen(false)
+                        }
+                        className="px-5 py-4"
+                    >
+                        <AppText
+                            variant="body"
+                            className="text-text-high"
+                        >
+                            Conversation history
+                        </AppText>
+                    </Pressable>
+                </Animated.View>
+            )}
+
+            <View className="h-17 mx-13 flex-row items-center justify-evenly rounded-4xl bg-background px-3">
+                <Pressable
+                    onPress={toggleInput}
+                    className={cn(
+                        "size-11 items-center justify-center rounded-full",
+                        inputVisible &&
+                        "bg-background",
+                    )}
+                >
+                    <HugeiconsIcon
+                        icon={CommandIcon}
+                        size={20}
+                        color={high.color}
+                    />
+                </Pressable>
+
+                <Pressable
+                    onPress={cancelInput}
+                    className="size-11 items-center justify-center rounded-full border border-neutral-300 bg-white-bg"
+                >
+                    <HugeiconsIcon
+                        icon={Cancel01Icon}
+                        size={28}
+                        color={high.color}
+                    />
+                </Pressable>
+
+                <Pressable
+                    onPress={toggleMenu}
+                    className={cn(
+                        "size-11 items-center justify-center rounded-full",
+                        menuOpen &&
+                        "bg-background",
+                    )}
+                >
+                    <HugeiconsIcon
+                        icon={Menu01Icon}
+                        size={20}
+                        color={high.color}
+                    />
+                </Pressable>
+            </View>
         </View>
     );
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Alert } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import type {
     NativeStackNavigationProp,
@@ -27,6 +28,7 @@ import type {
 } from "@/navigation/routes";
 import LogoMark from "@/components/common/LogoMark";
 import LegalLinks from "@/components/common/LegalLinks";
+import { sendMagicLink, signInWithProvider } from "@/lib/auth";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Login">;
 
@@ -39,6 +41,21 @@ export default function LoginScreen({ navigation }: Props) {
 
         try {
             setLoading(true);
+            const { error } = await sendMagicLink(email, {
+                shouldCreateUser: false,
+            });
+
+            if (error) throw error;
+
+            Alert.alert(
+                "Check your email",
+                "Use the secure link we sent to finish signing in.",
+            );
+        } catch (error) {
+            Alert.alert(
+                "Unable to send sign-in link",
+                error instanceof Error ? error.message : "Please try again.",
+            );
         } finally {
             setLoading(false);
         }
@@ -50,16 +67,24 @@ export default function LoginScreen({ navigation }: Props) {
             ?.navigate("LegalAcceptance");
     };
 
-    const handleGoogle = () => {
-        openLegalAcceptance();
-    };
+    const handleOAuth = async (provider: "google" | "facebook" | "github") => {
+        if (loading) return;
 
-    const handleFacebook = () => {
-        openLegalAcceptance();
-    };
+        try {
+            setLoading(true);
+            const { error } = await signInWithProvider(provider);
 
-    const handleGithub = () => {
-        openLegalAcceptance();
+            if (error) throw error;
+
+            openLegalAcceptance();
+        } catch (error) {
+            Alert.alert(
+                "Unable to sign in",
+                error instanceof Error ? error.message : "Please try again.",
+            );
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -131,8 +156,7 @@ export default function LoginScreen({ navigation }: Props) {
                                 onPress={handleMagicLink}
                                 loading={loading}
                                 disabled={!email.trim()}
-                                className="mt-4 rounded-2xl"
-                            >
+                                className="mt-4 rounded-2xl">
                                 <AppText
                                     variant="button"
                                     className="text-white"
@@ -171,7 +195,7 @@ export default function LoginScreen({ navigation }: Props) {
                         >
                             <View className="mb-3 flex-row gap-3">
                                 <Button
-                                    onPress={handleGoogle}
+                                    onPress={() => handleOAuth("google")}
                                     variant="secondary"
                                     className="flex-1 rounded-full bg-surface"
                                 >
@@ -190,7 +214,7 @@ export default function LoginScreen({ navigation }: Props) {
                                 </Button>
 
                                 <Button
-                                    onPress={handleFacebook}
+                                    onPress={() => handleOAuth("facebook")}
                                     variant="secondary"
                                     className="flex-1 rounded-full bg-surface"
                                 >
@@ -210,7 +234,7 @@ export default function LoginScreen({ navigation }: Props) {
                             </View>
 
                             <Button
-                                onPress={handleGithub}
+                                onPress={() => handleOAuth("github")}
                                 variant="secondary"
                                 className="rounded-full bg-surface"
                             >
