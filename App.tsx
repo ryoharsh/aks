@@ -2,10 +2,13 @@ import { NavigationContainer } from '@react-navigation/native';
 import AppNavigator from './src/navigation/AppNavigator';
 import { useFonts } from 'expo-font';
 import { useEffect } from 'react';
-import * as Linking from 'expo-linking';
 import * as SplashScreen from "expo-splash-screen";
 import { ThemeProvider } from '@/theme/ThemeProvider';
-import { exchangeAuthCallback } from '@/lib/auth';
+import { AuthProvider } from '@/providers/AuthProvider';
+import { AppFlowProvider } from '@/providers/AppFlowProvider';
+import { PreferencesProvider } from '@/providers/PreferencesProvider';
+import { SubscriptionProvider } from '@/providers/SubscriptionProvider';
+import ThemePreferenceSync from '@/components/ThemePreferenceSync';
 import './globals.css';
 
 SplashScreen.preventAutoHideAsync();
@@ -25,31 +28,24 @@ export default function App() {
     }
   }, [fontsLoaded, fontError]);
 
-  useEffect(() => {
-    const handleUrl = ({ url }: { url: string }) => {
-      void exchangeAuthCallback(url);
-    };
-
-    const subscription = Linking.addEventListener('url', handleUrl);
-
-    void Linking.getInitialURL().then((url) => {
-      if (url) {
-        void exchangeAuthCallback(url);
-      }
-    });
-
-    return () => subscription.remove();
-  }, []);
-
   if (!fontsLoaded && !fontError) {
     return null;
   }
 
   return (
     <ThemeProvider>
-      <NavigationContainer>
-        <AppNavigator />
-      </NavigationContainer>
+      <AuthProvider>
+        <SubscriptionProvider>
+          <PreferencesProvider>
+            <ThemePreferenceSync />
+            <AppFlowProvider>
+              <NavigationContainer>
+                <AppNavigator />
+              </NavigationContainer>
+            </AppFlowProvider>
+          </PreferencesProvider>
+        </SubscriptionProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

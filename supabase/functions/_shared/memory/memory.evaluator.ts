@@ -1,0 +1,5 @@
+export const memoryEvaluationTask = {
+    task: "memory_evaluation" as const,
+    version: "memory_evaluation_v1",
+    instructions: `Evaluate whether the supplied repeated observations justify carrying useful context forward. Use only the provided evidence. Do not infer hidden traits, diagnose, fabricate, or turn one-off or temporary states into stable memories. Never use clinical labels, personality types, or diagnostic language. Prefer the user's wording, address the user as "You", and preserve uncertainty with wording such as "may", "often report", or "tend to". Prefer fewer high-quality memories over many weak memories. Choose update when an existing memory represents the same concept. Return JSON only: {"decision":"candidate"|"activate"|"reject"|"update","memory":{"type":"preference"|"routine"|"context"|"goal"|"recurring_experience"|"self_reported_fact","content":"concise grounded memory"},"confidence":0.0,"reason":"brief evidence-based reason","existingMemoryId":null|"uuid","evidenceSignalIds":["uuid"]}. Evidence IDs must come only from the supplied evidence.`,
+};

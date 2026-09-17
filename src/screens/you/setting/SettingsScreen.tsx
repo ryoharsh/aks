@@ -1,4 +1,4 @@
-import { Alert, Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { useNavigation, type NavigationProp } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
@@ -7,9 +7,7 @@ import {
     ArrowLeft01Icon,
     ArrowRight01Icon,
     CreditCardIcon,
-    Globe02Icon,
     InformationCircleIcon,
-    Logout01Icon,
     ShieldCheckIcon,
     UserIcon,
 } from "@hugeicons/core-free-icons";
@@ -36,21 +34,6 @@ export default function SettingsScreen({ navigation }: Props) {
     const rootNavigation = useNavigation<NavigationProp<RootStackParamList>>();
     const iconColor = useResolveClassNames("text-text-medium").color;
 
-    const signOut = () => {
-        Alert.alert(
-            "Sign out?",
-            "You'll need to sign in again to continue using Aks.",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Sign out",
-                    style: "destructive",
-                    onPress: () => rootNavigation.reset({ index: 0, routes: [{ name: "Auth" }] }),
-                },
-            ],
-        );
-    };
-
     return (
         <View className="flex-1 bg-background">
             <Animated.View entering={FadeInUp.duration(400)} className="h-16 flex-row items-center px-5">
@@ -71,14 +54,8 @@ export default function SettingsScreen({ navigation }: Props) {
                     <SectionLabel>ACCOUNT</SectionLabel>
                     <View className="overflow-hidden rounded-[28px] border border-border bg-surface">
                         <SettingsRow icon={UserIcon} title="Profile" description="Manage your personal information" onPress={() => navigation.navigate("Profile")} iconColor={iconColor} />
+                        <SettingsRow icon={ShieldCheckIcon} title="Account" description="Sign out or delete your account" onPress={() => navigation.navigate("Account")} iconColor={iconColor} />
                         <SettingsRow icon={CreditCardIcon} title="Subscription" description="Manage your Aks plan and billing" onPress={() => navigation.navigate("Subscription")} iconColor={iconColor} last />
-                    </View>
-                </Animated.View>
-
-                <Animated.View entering={FadeInUp.duration(450).delay(220)} className="mt-9">
-                    <SectionLabel>PREFERENCES</SectionLabel>
-                    <View className="overflow-hidden rounded-[28px] border border-border bg-surface">
-                        <SettingsRow icon={Globe02Icon} title="Language" description="English" onPress={() => navigation.navigate("Language")} iconColor={iconColor} last />
                     </View>
                 </Animated.View>
 
@@ -88,13 +65,6 @@ export default function SettingsScreen({ navigation }: Props) {
                         <SettingsRow icon={InformationCircleIcon} title="About Aks" description="Learn more about Aks" onPress={() => navigation.navigate("About")} iconColor={iconColor} />
                         <SettingsRow icon={ShieldCheckIcon} title="Terms of Service" onPress={() => rootNavigation.navigate("Terms")} iconColor={iconColor} />
                         <SettingsRow icon={ShieldCheckIcon} title="Privacy Policy" onPress={() => rootNavigation.navigate("PrivacyPolicy")} iconColor={iconColor} last />
-                    </View>
-                </Animated.View>
-
-                <Animated.View entering={FadeInUp.duration(450).delay(360)} className="mt-9">
-                    <SectionLabel>ACCOUNT</SectionLabel>
-                    <View className="overflow-hidden rounded-[28px] border border-border bg-surface">
-                        <SettingsRow icon={Logout01Icon} title="Sign out" description="Sign out of your Aks account" onPress={signOut} iconColor={iconColor} destructive last />
                     </View>
                 </Animated.View>
 

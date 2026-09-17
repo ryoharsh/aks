@@ -24,6 +24,7 @@ import {
     useAudioRecorder,
     useAudioRecorderState,
 } from "expo-audio";
+import { File } from "expo-file-system";
 
 import {
     DotLottie,
@@ -50,6 +51,9 @@ import Animated, {
 import { cn } from "@/lib/cn";
 import AppText from "@/components/ui/Text";
 import IconButton from "@/components/ui/IconButton";
+import { useMirror } from "@/hooks/useMirror";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "@/navigation/routes";
 
 const MASCOT_FALLBACK = require("@assets/splash-icon.png");
 
@@ -148,10 +152,13 @@ const AksMotion = forwardRef<
 
 AksMotion.displayName = "AksMotion";
 
-export default function MirrorConversationScreen() {
+type Props = NativeStackScreenProps<RootStackParamList, "AiConversation">;
+
+export default function MirrorConversationScreen({ route }: Props) {
     const motionRef = useRef<AksMotionHandle>(null);
 
     const [ready, setReady] = useState(false);
+    const mirror = useMirror(route.params?.conversationId);
 
     const handleMotionReady = useCallback(() => {
         setReady(true);
@@ -213,11 +220,35 @@ export default function MirrorConversationScreen() {
                                 first. Just start talking.
                             </AppText>
                         </View>
+
+                        {mirror.messages.length ? (
+                            <View className="gap-4 pb-8">
+                                {mirror.hasEarlier ? <Pressable onPress={() => void mirror.loadEarlier()} disabled={mirror.loadingEarlier} className="self-center py-3"><AppText variant="button" className="text-text-medium">{mirror.loadingEarlier ? "Loading…" : "Load earlier messages"}</AppText></Pressable> : null}
+                                {mirror.messages.map((item) => (
+                                    <View key={item.id} className={item.role === "user" ? "ml-10 items-end" : "mr-10 items-start"}>
+                                        <AppText variant="caption" className="mb-2 text-text-low">{item.role === "user" ? "YOU" : "AKS"}</AppText>
+                                        <View className={item.role === "user" ? "rounded-3xl bg-primary px-4 py-3" : "pr-4"}>
+                                            <AppText className={item.role === "user" ? "text-primary-foreground" : "text-text-high"}>{item.content}</AppText>
+                                        </View>
+                                    </View>
+                                ))}
+                            </View>
+                        ) : null}
+                        {mirror.loading ? <AppText className="pb-8 text-center text-text-low">Loading conversation…</AppText> : null}
+                        {mirror.processing ? <AppText className="pb-8 text-center text-text-low">Finding the signal…</AppText> : null}
+                        {mirror.error ? (
+                            <View className="mb-8 rounded-3xl border border-border bg-surface p-4">
+                                <AppText variant="button" className="text-text-high">Something went wrong.</AppText>
+                                <AppText className="mt-1 text-text-low">{mirror.error}</AppText>
+                                <Pressable onPress={() => mirror.canRetry ? void mirror.retry() : mirror.dismissError()} className="mt-3 self-start py-1"><AppText variant="button" className="text-text-high">{mirror.canRetry ? "Retry response" : "Dismiss"}</AppText></Pressable>
+                            </View>
+                        ) : null}
                     </View>
                 </ScrollView>
 
                 <MirrorConversationBottomBar
                     motionRef={motionRef}
+                    mirror={mirror}
                 />
             </View>
         </KeyboardAvoidingView>
@@ -226,12 +257,15 @@ export default function MirrorConversationScreen() {
 
 export function MirrorConversationBottomBar({
     motionRef,
+    mirror,
 }: {
     motionRef: React.RefObject<AksMotionHandle | null>;
+    mirror: ReturnType<typeof useMirror>;
 }) {
     const [inputVisible, setInputVisible] = useState(false);
     const [message, setMessage] = useState("");
     const [menuOpen, setMenuOpen] = useState(false);
+    const inputRef = useRef<TextInput>(null);
 
     const audioRecorder = useAudioRecorder(
         RecordingPresets.HIGH_QUALITY,
@@ -241,57 +275,33 @@ export function MirrorConversationBottomBar({
         audioRecorder,
         250,
     );
-
-    const responseTimers = useRef<
-        ReturnType<typeof setTimeout>[]
-    >([]);
+    const recordingRef = useRef(false);
+    recordingRef.current = recorderState.isRecording;
 
     const high = useResolveClassNames("text-text-high");
     const low = useResolveClassNames("text-text-low");
 
-    const clearResponseTimers = useCallback(() => {
-        responseTimers.current.forEach(clearTimeout);
-        responseTimers.current = [];
-    }, []);
-
-    const playResponseLifecycle = useCallback(() => {
-        clearResponseTimers();
-
-        motionRef.current?.conversation("send");
-
-        responseTimers.current = [
-            setTimeout(() => {
-                motionRef.current?.conversation(
-                    "responseStart",
-                );
-            }, 180),
-
-            setTimeout(() => {
-                motionRef.current?.conversation(
-                    "responseEnd",
-                );
-            }, 1400),
-        ];
-    }, [clearResponseTimers, motionRef]);
+    useEffect(() => {
+        if (inputVisible) requestAnimationFrame(() => inputRef.current?.focus());
+    }, [inputVisible]);
 
     useEffect(() => {
         return () => {
-            clearResponseTimers();
-
-            if (!recorderState.isRecording) {
+            if (!recordingRef.current) {
                 return;
             }
 
-            void audioRecorder.stop().finally(() => {
+            void audioRecorder.stop().catch(() => undefined).finally(() => {
                 void setAudioModeAsync({
                     allowsRecording: false,
                 });
+                if (audioRecorder.uri) {
+                    try { new File(audioRecorder.uri).delete(); } catch {}
+                }
             });
         };
     }, [
         audioRecorder,
-        recorderState.isRecording,
-        clearResponseTimers,
     ]);
 
     const handleMessageChange = useCallback(
@@ -307,17 +317,22 @@ export function MirrorConversationBottomBar({
         [motionRef],
     );
 
-    const handleSend = useCallback(() => {
+    const handleSend = useCallback(async () => {
         const value = message.trim();
 
-        if (!value) {
+        if (!value || mirror.processing || mirror.loading) {
             return;
         }
-
-        setMessage("");
-
-        playResponseLifecycle();
-    }, [message, playResponseLifecycle]);
+        motionRef.current?.conversation("send");
+        try {
+            await mirror.sendMessage(value);
+            setMessage("");
+            motionRef.current?.conversation("inputEnd");
+        } catch {
+            motionRef.current?.conversation("cancel");
+            Alert.alert("Unable to save message", "Your message is still here. Check your connection and try again.");
+        }
+    }, [message, mirror, motionRef]);
 
     const startRecording = useCallback(async () => {
         try {
@@ -355,8 +370,10 @@ export function MirrorConversationBottomBar({
     }, [audioRecorder, motionRef]);
 
     const stopRecording = useCallback(async () => {
+        let recordedUri: string | null = null;
         try {
             await audioRecorder.stop();
+            recordedUri = audioRecorder.uri;
 
             await setAudioModeAsync({
                 allowsRecording: false,
@@ -366,17 +383,18 @@ export function MirrorConversationBottomBar({
                 "inputEnd",
             );
 
-            playResponseLifecycle();
+            if (recordedUri) await mirror.sendVoice(recordedUri);
         } catch {
             motionRef.current?.conversation(
                 "cancel",
             );
+            Alert.alert("Voice processing unavailable", "Your recording was not uploaded or added to your data.");
+        } finally {
+            if (recordedUri) {
+                try { new File(recordedUri).delete(); } catch {}
+            }
         }
-    }, [
-        audioRecorder,
-        motionRef,
-        playResponseLifecycle,
-    ]);
+    }, [audioRecorder, mirror, motionRef]);
 
     const toggleInput = useCallback(() => {
         setInputVisible((visible) => !visible);
@@ -412,6 +430,7 @@ export function MirrorConversationBottomBar({
                 >
                     <View className="min-h-14 flex-row items-end rounded-3xl border border-border bg-surface p-1.5 pl-4">
                         <TextInput
+                            ref={inputRef}
                             value={message}
                             onChangeText={
                                 handleMessageChange
@@ -429,7 +448,8 @@ export function MirrorConversationBottomBar({
                         {hasMessage ? (
                             <IconButton
                                 accessibilityLabel="Send message"
-                                onPress={handleSend}
+                                onPress={() => void handleSend()}
+                                disabled={mirror.processing || mirror.loading}
                                 className="bg-primary"
                             >
                                 <HugeiconsIcon
@@ -483,10 +503,13 @@ export function MirrorConversationBottomBar({
                     className="absolute bottom-22 right-4 z-10 min-w-52 overflow-hidden rounded-2xl border border-border bg-surface"
                 >
                     <Pressable
-                        onPress={() =>
-                            setMenuOpen(false)
-                        }
+                        onPress={() => {
+                            mirror.startNewConversation();
+                            setMenuOpen(false);
+                            setMessage("");
+                        }}
                         className="px-5 py-4"
+                        disabled={mirror.processing || mirror.loading}
                     >
                         <AppText
                             variant="body"
@@ -496,27 +519,14 @@ export function MirrorConversationBottomBar({
                         </AppText>
                     </Pressable>
 
-                    <View className="h-px bg-border" />
-
-                    <Pressable
-                        onPress={() =>
-                            setMenuOpen(false)
-                        }
-                        className="px-5 py-4"
-                    >
-                        <AppText
-                            variant="body"
-                            className="text-text-high"
-                        >
-                            Conversation history
-                        </AppText>
-                    </Pressable>
                 </Animated.View>
             )}
 
             <View className="h-17 mx-13 flex-row items-center justify-evenly rounded-4xl bg-background px-3">
                 <Pressable
                     onPress={toggleInput}
+                    accessibilityRole="button"
+                    accessibilityLabel="Open keyboard"
                     className={cn(
                         "size-11 items-center justify-center rounded-full",
                         inputVisible &&
@@ -532,6 +542,8 @@ export function MirrorConversationBottomBar({
 
                 <Pressable
                     onPress={cancelInput}
+                    accessibilityRole="button"
+                    accessibilityLabel="Close composer"
                     className="size-11 items-center justify-center rounded-full border border-neutral-300 bg-white-bg"
                 >
                     <HugeiconsIcon
@@ -543,6 +555,8 @@ export function MirrorConversationBottomBar({
 
                 <Pressable
                     onPress={toggleMenu}
+                    accessibilityRole="button"
+                    accessibilityLabel="More conversation options"
                     className={cn(
                         "size-11 items-center justify-center rounded-full",
                         menuOpen &&

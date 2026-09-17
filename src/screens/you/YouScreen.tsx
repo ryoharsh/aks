@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Image, Pressable, ScrollView, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Animated, {
@@ -25,6 +25,10 @@ import { useResolveClassNames } from "uniwind";
 
 import AppText from "@/components/ui/Text";
 import type { YouStackParamList } from "@/navigation/routes";
+import { useAuth } from "@/hooks/useAuth";
+import { usePreferences } from "@/providers/PreferencesProvider";
+import { useYourDataCounts } from "@/hooks/useYourDataCounts";
+import { useTimelineNavigation } from "@/hooks/useTimelineNavigation";
 
 type Props = NativeStackScreenProps<YouStackParamList, "YouHome"> & {
     shouldEnter: boolean;
@@ -100,6 +104,13 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 export default function YouScreen({ navigation, shouldEnter }: Props) {
     const primaryColor = useResolveClassNames("text-text-high");
+    const { user } = useAuth();
+    const { preferences } = usePreferences();
+    const { counts } = useYourDataCounts();
+    const [avatarFailed, setAvatarFailed] = React.useState(false);
+
+    React.useEffect(() => setAvatarFailed(false), [user?.avatarUrl]);
+    useTimelineNavigation(navigation);
 
     return (
         <View
@@ -148,13 +159,12 @@ export default function YouScreen({ navigation, shouldEnter }: Props) {
                         className="mt-8"
                     >
                         <View className="flex-row items-center">
-                            <View className="h-16 w-16 items-center justify-center rounded-full bg-primary">
-                                <HugeiconsIcon
-                                    icon={UserIcon}
-                                    size={28}
-                                    color="#FFFFFF"
-                                    strokeWidth={1.8}
-                                />
+                            <View className="h-16 w-16 overflow-hidden items-center justify-center rounded-full bg-primary">
+                                {user?.avatarUrl && !avatarFailed ? (
+                                    <Image source={{ uri: user.avatarUrl }} className="size-16" onError={() => setAvatarFailed(true)} />
+                                ) : (
+                                    <HugeiconsIcon icon={UserIcon} size={28} color="#FFFFFF" strokeWidth={1.8} />
+                                )}
                             </View>
 
                             <View className="ml-4 flex-1">
@@ -162,7 +172,7 @@ export default function YouScreen({ navigation, shouldEnter }: Props) {
                                     variant="title"
                                     className="text-text-high"
                                 >
-                                    Harsh
+                                    {user?.name ?? "Aks member"}
                                 </AppText>
 
                                 <AppText className="mt-1 text-text-low">
@@ -178,7 +188,7 @@ export default function YouScreen({ navigation, shouldEnter }: Props) {
                         <Pressable
                             onPress={() =>
                                 navigation.navigate("YourData", {
-                                    screen: "Patterns",
+                                    screen: "Memories",
                                 })
                             }
                             className="rounded-[28px] border border-border bg-surface p-5"
@@ -206,7 +216,7 @@ export default function YouScreen({ navigation, shouldEnter }: Props) {
                                             variant="caption"
                                             className="mt-1 text-text-low"
                                         >
-                                            7 patterns discovered
+                                            {counts?.memories ? `${counts.memories} ${counts.memories === 1 ? "memory" : "memories"}` : "Still getting to know you"}
                                         </AppText>
                                     </View>
                                 </View>
@@ -225,8 +235,8 @@ export default function YouScreen({ navigation, shouldEnter }: Props) {
                     >
                         <Pressable
                             onPress={() =>
-                                navigation.navigate("YourData", {
-                                    screen: "Experiments",
+                                navigation.navigate("Settings", {
+                                    screen: "Exploring",
                                 })
                             }
                             className="rounded-[28px] border border-border bg-surface p-5"
@@ -254,7 +264,7 @@ export default function YouScreen({ navigation, shouldEnter }: Props) {
                                             variant="caption"
                                             className="mt-1 text-text-low"
                                         >
-                                            Focus · Energy · Sleep
+                                            {preferences.whatExploring.join(" · ") || "Choose your focus"}
                                         </AppText>
                                     </View>
                                 </View>
@@ -302,7 +312,7 @@ export default function YouScreen({ navigation, shouldEnter }: Props) {
                                             variant="caption"
                                             className="mt-1 text-text-low"
                                         >
-                                            3 new discoveries
+                                            Nothing settled yet
                                         </AppText>
                                     </View>
                                 </View>
@@ -326,8 +336,8 @@ export default function YouScreen({ navigation, shouldEnter }: Props) {
                         <View className="border-t border-border">
                             <MenuItem
                                 icon={SparklesIcon}
-                                title="Patterns"
-                                description="Things Aks has noticed"
+                                title="Memories"
+                                description="Useful context Aks carries forward"
                                 onPress={() =>
                                     navigation.navigate("YourData", {
                                         screen: "Patterns",

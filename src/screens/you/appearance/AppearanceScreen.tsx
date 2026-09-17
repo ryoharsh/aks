@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import Animated, {
     FadeInDown,
@@ -23,6 +23,8 @@ import IconButton from "@/components/ui/IconButton";
 import type { YouStackParamList } from "@/navigation/routes";
 import { cn } from "@/lib/cn";
 import { useResolveClassNames } from "uniwind";
+import { usePreferences } from "@/providers/PreferencesProvider";
+import { Alert } from "react-native";
 
 type Props = NativeStackScreenProps<YouStackParamList, "Appearance">;
 
@@ -55,11 +57,29 @@ const themeOptions: ThemeOption[] = [
 ];
 
 export default function AppearanceScreen({ navigation }: Props) {
-    const [selectedTheme, setSelectedTheme] =
-        useState<ThemeOption["id"]>("system");
+    const { preferences, updatePreferences } = usePreferences();
+    const [selectedTheme, setSelectedTheme] = useState<ThemeOption["id"]>(preferences.appearance);
+    const [saving, setSaving] = useState(false);
 
     const iconColor = useResolveClassNames("text-text-medium").color;
     const activeColor = useResolveClassNames("text-primary").color;
+
+    useEffect(() => setSelectedTheme(preferences.appearance), [preferences.appearance]);
+
+    const chooseTheme = async (mode: ThemeOption["id"]) => {
+        if (saving) return;
+        const previous = selectedTheme;
+        setSelectedTheme(mode);
+        try {
+            setSaving(true);
+            await updatePreferences({ appearance: mode });
+        } catch {
+            setSelectedTheme(previous);
+            Alert.alert("Unable to save appearance", "Check your connection and try again.");
+        } finally {
+            setSaving(false);
+        }
+    };
 
     return (
         <View className="flex-1 bg-background">
@@ -135,8 +155,9 @@ export default function AppearanceScreen({ navigation }: Props) {
                                 <Pressable
                                     key={option.id}
                                     onPress={() =>
-                                        setSelectedTheme(option.id)
+                                        void chooseTheme(option.id)
                                     }
+                                    disabled={saving}
                                     className={cn(
                                         "flex-row items-center px-5 py-5",
                                         index !== themeOptions.length - 1 &&

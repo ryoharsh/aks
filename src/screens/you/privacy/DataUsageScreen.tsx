@@ -8,7 +8,7 @@ import { useResolveClassNames } from "uniwind";
 
 import AppText from "@/components/ui/Text";
 import IconButton from "@/components/ui/IconButton";
-import type { PrivacyStackParamList } from "@/navigation/PrivacyNavigator";
+import type { PrivacyStackParamList } from "@/navigation/routes";
 import type { RootStackParamList } from "@/navigation/routes";
 
 type Props = NativeStackScreenProps<PrivacyStackParamList, "DataUsage">;
@@ -17,6 +17,7 @@ const SECTIONS = [
     ["Why Aks uses your data", "Information you choose to share helps Aks personalize reflections, identify useful themes, and support your goals."],
     ["Reflections and check-ins", "Your entries can provide context for changes in mood, energy, focus, and routines over time."],
     ["Pattern detection", "Aks can compare information you provide to surface possible patterns for you to review. These are prompts for reflection, not medical conclusions."],
+    ["Memory", "Aks may retain a small amount of repeated, useful context. Every memory stays linked to the information that supports it and can be removed without deleting the original source."],
     ["Experiments and outcomes", "Experiment entries can help you compare what you tried with the outcomes you recorded."],
     ["AI-assisted understanding", "AI may help organize and summarize the information you provide. Review important insights and use your own judgment."],
 ] as const;

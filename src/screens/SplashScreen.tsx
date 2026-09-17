@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import Animated, {
@@ -6,23 +5,10 @@ import Animated, {
     FadeInDown,
     ZoomIn,
 } from "react-native-reanimated";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import AppLogo from "@/components/ui/AppLogo";
 import AppText from "@/components/ui/Text";
-import type { RootStackParamList } from "@/navigation/routes";
-
-type Props = NativeStackScreenProps<RootStackParamList, "Splash">;
-
-export default function SplashScreen({ navigation }: Props) {
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            navigation.replace("Onboarding");
-        }, 2000);
-
-        return () => clearTimeout(timer);
-    }, [navigation]);
-
+export default function SplashScreen() {
     return (
         <View className="flex-1 items-center justify-center bg-background">
             <StatusBar style="dark" />

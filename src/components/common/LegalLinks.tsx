@@ -7,6 +7,7 @@ import type { RootStackParamList } from "@/navigation/routes";
 
 export default function LegalLinks() {
     const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+    const rootNavigation = navigation.getParent<NavigationProp<RootStackParamList>>() ?? navigation;
 
     return (
         <View className="mt-5 flex-row flex-wrap justify-center px-4">
@@ -18,7 +19,7 @@ export default function LegalLinks() {
             </AppText>
 
             <Pressable
-                onPress={() => navigation.navigate("Terms")}
+                onPress={() => rootNavigation.navigate("Terms")}
                 hitSlop={6}
             >
                 <AppText
@@ -38,7 +39,7 @@ export default function LegalLinks() {
 
             <Pressable
                 onPress={() =>
-                    navigation.navigate("PrivacyPolicy")
+                    rootNavigation.navigate("PrivacyPolicy")
                 }
                 hitSlop={6}
             >

@@ -1,10 +1,7 @@
 import { useState } from "react";
 import { Alert } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import type {
-    NativeStackNavigationProp,
-    NativeStackScreenProps,
-} from "@react-navigation/native-stack";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Animated, {
     FadeIn,
     FadeInDown,
@@ -22,35 +19,28 @@ import {
 
 import AppText from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
-import type {
-    AuthStackParamList,
-    RootStackParamList,
-} from "@/navigation/routes";
+import type { AuthStackParamList } from "@/navigation/routes";
 import LogoMark from "@/components/common/LogoMark";
 import LegalLinks from "@/components/common/LegalLinks";
-import { sendMagicLink, signInWithProvider } from "@/lib/auth";
+import EmailConfirmation from "@/components/auth/EmailConfirmation";
+import { useAuth } from "@/hooks/useAuth";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Login">;
+const facebookEnabled = process.env.EXPO_PUBLIC_AUTH_FACEBOOK_ENABLED === "true";
 
 export default function LoginScreen({ navigation }: Props) {
     const [email, setEmail] = useState("");
     const [loading, setLoading] = useState(false);
+    const [sentEmail, setSentEmail] = useState<string | null>(null);
+    const { callbackError, clearCallbackError, signInWithMagicLink, signInWithProvider } = useAuth();
 
     const handleMagicLink = async () => {
         if (!email.trim() || loading) return;
 
         try {
             setLoading(true);
-            const { error } = await sendMagicLink(email, {
-                shouldCreateUser: false,
-            });
-
-            if (error) throw error;
-
-            Alert.alert(
-                "Check your email",
-                "Use the secure link we sent to finish signing in.",
-            );
+            await signInWithMagicLink(email);
+            setSentEmail(email.trim().toLowerCase());
         } catch (error) {
             Alert.alert(
                 "Unable to send sign-in link",
@@ -61,22 +51,12 @@ export default function LoginScreen({ navigation }: Props) {
         }
     };
 
-    const openLegalAcceptance = () => {
-        navigation
-            .getParent<NativeStackNavigationProp<RootStackParamList>>()
-            ?.navigate("LegalAcceptance");
-    };
-
     const handleOAuth = async (provider: "google" | "facebook" | "github") => {
         if (loading) return;
 
         try {
             setLoading(true);
-            const { error } = await signInWithProvider(provider);
-
-            if (error) throw error;
-
-            openLegalAcceptance();
+            await signInWithProvider(provider);
         } catch (error) {
             Alert.alert(
                 "Unable to sign in",
@@ -86,6 +66,17 @@ export default function LoginScreen({ navigation }: Props) {
             setLoading(false);
         }
     };
+
+    if (sentEmail) {
+        return (
+            <EmailConfirmation
+                email={sentEmail}
+                loading={loading}
+                onResend={() => void handleMagicLink()}
+                onEdit={() => setSentEmail(null)}
+            />
+        );
+    }
 
     return (
         <KeyboardAvoidingView
@@ -127,6 +118,11 @@ export default function LoginScreen({ navigation }: Props) {
                                 Sign in to continue discovering what Aks
                                 notices about you.
                             </AppText>
+                            {callbackError ? (
+                                <Pressable onPress={clearCallbackError} accessibilityRole="button">
+                                    <AppText variant="caption" className="mt-3 text-red-600">{callbackError} Tap to dismiss.</AppText>
+                                </Pressable>
+                            ) : null}
                         </Animated.View>
 
                         <Animated.View
@@ -149,13 +145,15 @@ export default function LoginScreen({ navigation }: Props) {
                                 placeholder="you@example.com"
                                 placeholderTextColor="#A3A3A3"
                                 className="h-14 rounded-2xl border border-border bg-surface px-4 text-[16px] text-text-high"
+                                accessibilityLabel="Email address"
                             />
 
                             <Button
                                 variant="primary"
                                 onPress={handleMagicLink}
                                 loading={loading}
-                                disabled={!email.trim()}
+                                 disabled={!email.trim()}
+                                 accessibilityLabel="Send sign-in link"
                                 className="mt-4 rounded-2xl">
                                 <AppText
                                     variant="button"
@@ -194,9 +192,11 @@ export default function LoginScreen({ navigation }: Props) {
                             entering={FadeInUp.duration(500).delay(250)}
                         >
                             <View className="mb-3 flex-row gap-3">
-                                <Button
+                                 <Button
                                     onPress={() => handleOAuth("google")}
-                                    variant="secondary"
+                                     variant="secondary"
+                                     disabled={loading}
+                                     accessibilityLabel="Continue with Google"
                                     className="flex-1 rounded-full bg-surface"
                                 >
                                     <Image
@@ -213,9 +213,11 @@ export default function LoginScreen({ navigation }: Props) {
                                     </AppText>
                                 </Button>
 
-                                <Button
-                                    onPress={() => handleOAuth("facebook")}
-                                    variant="secondary"
+                                {facebookEnabled ? <Button
+                                     onPress={() => handleOAuth("facebook")}
+                                     variant="secondary"
+                                     disabled={loading}
+                                     accessibilityLabel="Continue with Facebook"
                                     className="flex-1 rounded-full bg-surface"
                                 >
                                     <Image
@@ -230,12 +232,14 @@ export default function LoginScreen({ navigation }: Props) {
                                     >
                                         Facebook
                                     </AppText>
-                                </Button>
+                                </Button> : null}
                             </View>
 
-                            <Button
+                             <Button
                                 onPress={() => handleOAuth("github")}
-                                variant="secondary"
+                                 variant="secondary"
+                                 disabled={loading}
+                                 accessibilityLabel="Continue with GitHub"
                                 className="rounded-full bg-surface"
                             >
                                 <Image

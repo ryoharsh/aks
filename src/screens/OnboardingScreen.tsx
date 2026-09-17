@@ -6,6 +6,7 @@ import {
     Pressable,
     ScrollView,
     View,
+    Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -27,6 +28,7 @@ import AppLogo from "@/components/ui/AppLogo";
 import AnimatedButton from "@/components/ui/AnimatedButton";
 import type { RootStackParamList } from "@/navigation/routes";
 import LogoMark from "@/components/common/LogoMark";
+import { useAppFlow } from "@/providers/AppFlowProvider";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -187,8 +189,10 @@ function AnimatedSlideContent({
 }
 
 export default function OnboardingScreen({ navigation }: Props) {
+    const { completeOnboarding } = useAppFlow();
     const scrollRef = useRef<ScrollView>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [saving, setSaving] = useState(false);
 
     const isLastSlide = currentIndex === slides.length - 1;
 
@@ -238,9 +242,20 @@ export default function OnboardingScreen({ navigation }: Props) {
         }
     };
 
+    const finishOnboarding = async () => {
+        if (saving) return;
+        try {
+            setSaving(true);
+            await completeOnboarding();
+        } catch {
+            Alert.alert("Unable to continue", "Please try again.");
+            setSaving(false);
+        }
+    };
+
     const goToNext = () => {
         if (isLastSlide) {
-            navigation.push("Auth");
+            void finishOnboarding();
             return;
         }
 
@@ -253,7 +268,7 @@ export default function OnboardingScreen({ navigation }: Props) {
     };
 
     const skip = () => {
-        navigation.push("Auth");
+        void finishOnboarding();
     };
 
     return (
@@ -272,6 +287,7 @@ export default function OnboardingScreen({ navigation }: Props) {
                     >
                         <Pressable
                             onPress={skip}
+                            disabled={saving}
                             hitSlop={12}
                         >
                             <AppText className="text-sm text-text-high">
@@ -325,6 +341,8 @@ export default function OnboardingScreen({ navigation }: Props) {
                 <Animated.View style={ctaStyle}>
                     <AnimatedButton
                         onPress={goToNext}
+                        loading={saving}
+                        disabled={saving}
                         bgColor="bg-white"
                         pressBgColor="bg-neutral-950"
                         textColor="text-black"

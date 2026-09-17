@@ -1,5 +1,6 @@
 import { memo, useMemo, useState } from "react";
 import {
+    ActivityIndicator,
     Pressable,
     SectionList,
     View,
@@ -7,24 +8,74 @@ import {
 import Animated, {
     FadeInUp,
 } from "react-native-reanimated";
-import { HugeiconsIcon } from "@hugeicons/react-native";
-import { useResolveClassNames } from "uniwind";
-
-import AppText from "@/components/ui/Text";
-import { cn } from "@/lib/cn";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react-native";
 import {
-    mockTimelineEvents,
-    timelineFilters,
-    timelineGroups,
-    type TimelineEvent,
-    type TimelineFilter,
-} from "@/data/mockTimeline";
+    ArrowRight01Icon,
+    BookOpen01Icon,
+    Chat01Icon,
+    CheckListIcon,
+    Flag02Icon,
+    Note01Icon,
+    SparklesIcon,
+    Target01Icon,
+} from "@hugeicons/core-free-icons";
+import { useResolveClassNames } from "uniwind";
 import { LinearGradient } from "expo-linear-gradient";
 
-type TimelineSection = {
-    title: string;
-    data: TimelineEvent[];
+import AppText from "@/components/ui/Text";
+import Button from "@/components/ui/Button";
+import { cn } from "@/lib/cn";
+import { navigationBus } from "@/services/navigationBus";
+import { groupTimelineItems, timelineTargetFor } from "@/services/timeline.service";
+import { useTimeline } from "@/hooks/useTimeline";
+import {
+    TIMELINE_FILTERS,
+    eventTypeToLabel,
+    type TimelineFilter,
+    type TimelineItem,
+} from "@/types/timeline";
+
+const eventTypeIcons: Record<TimelineItem["eventType"], IconSvgElement> = {
+    reflection: Note01Icon,
+    check_in: CheckListIcon,
+    conversation: Chat01Icon,
+    pattern: Flag02Icon,
+    experiment: Target01Icon,
+    learning: BookOpen01Icon,
+    insight: SparklesIcon,
 };
+
+const emptyCopy: Record<TimelineFilter, { title: string; description: string }> = {
+    All: {
+        title: "Your story starts here.",
+        description: "Conversations, reflections, check-ins, and the things Aks notices will gather here over time.",
+    },
+    Insights: {
+        title: "No insights yet.",
+        description: "Aks will surface insights here as patterns and experiments settle.",
+    },
+    Experiments: {
+        title: "No experiments yet.",
+        description: "Experiments you set up will appear here as you run them.",
+    },
+    "Check-ins": {
+        title: "No check-ins yet.",
+        description: "Your daily check-ins will appear here.",
+    },
+    Decisions: {
+        title: "No decisions yet.",
+        description: "Patterns Aks notices will appear here as they take shape.",
+    },
+};
+
+function formatTime(value: string) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return new Intl.DateTimeFormat(undefined, {
+        hour: "numeric",
+        minute: "2-digit",
+    }).format(date);
+}
 
 type TimelineScreenProps = {
     shouldEnter: boolean;
@@ -37,63 +88,26 @@ export default function TimelineScreen({
 }: TimelineScreenProps) {
     const [selectedFilter, setSelectedFilter] =
         useState<TimelineFilter>("All");
-    const [status] = useState<"ready" | "loading" | "error">("ready");
-    const [refreshing, setRefreshing] = useState(false);
+    const timeline = useTimeline(selectedFilter);
+    const mediumColor = useResolveClassNames("text-text-medium").color;
 
-    const sections = useMemo<TimelineSection[]>(() => {
-        const filtered =
-            selectedFilter === "All"
-                ? mockTimelineEvents
-                : mockTimelineEvents.filter(
-                    (event) => event.type === selectedFilter,
-                );
+    const sections = useMemo(
+        () => groupTimelineItems(timeline.items),
+        [timeline.items],
+    );
 
-        return timelineGroups
-            .map((group) => ({
-                title: group,
-                data: filtered.filter((event) => event.group === group),
-            }))
-            .filter((section) => section.data.length > 0);
-    }, [selectedFilter]);
+    const copy = emptyCopy[selectedFilter];
 
-    const refresh = () => {
-        setRefreshing(true);
-        setTimeout(() => setRefreshing(false), 500);
+    const handleLoadMore = () => {
+        if (timeline.hasMore && !timeline.loadingMore) {
+            void timeline.loadMore();
+        }
     };
 
-    if (status === "loading") {
-        return (
-            <View className="flex-1 items-center justify-center bg-background px-6">
-                <AppText variant="title" className="text-text-high">
-                    Loading your timeline…
-                </AppText>
-                <AppText className="mt-2 text-center text-text-low">
-                    Bringing your recent journey together.
-                </AppText>
-            </View>
-        );
-    }
-
-    if (status === "error") {
-        return (
-            <View className="flex-1 items-center justify-center bg-background px-6">
-                <AppText variant="title" className="text-center text-text-high">
-                    Unable to load your timeline.
-                </AppText>
-                <AppText className="mt-2 text-center text-text-low">
-                    Please check your connection and try again.
-                </AppText>
-                <Pressable
-                    onPress={refresh}
-                    className="mt-6 rounded-full bg-primary px-6 py-3"
-                >
-                    <AppText variant="button" className="text-primary-foreground">
-                        Try again
-                    </AppText>
-                </Pressable>
-            </View>
-        );
-    }
+    const handleItemPress = (item: TimelineItem) => {
+        const target = timelineTargetFor(item);
+        if (target) navigationBus.requestTimelineNavigation(target);
+    };
 
     return (
         <View
@@ -106,53 +120,88 @@ export default function TimelineScreen({
                 entering={shouldEnter ? FadeInUp.duration(400) : undefined}
                 className="flex-1"
             >
-                <SectionList
-                    sections={sections}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                        <TimelineItem
-                            item={item}
-                        />
-                    )}
-                    renderSectionHeader={({ section }) => (
-                        <AppText
-                            variant="caption"
-                            className="bg-background pb-3 pt-7 tracking-[1.5px] text-text-low"
-                        >
-                            {section.title.toUpperCase()}
-                        </AppText>
-                    )}
-                    ListHeaderComponent={
-                        <TimelineHeader
-                            selectedFilter={selectedFilter}
-                            onFilterChange={setSelectedFilter}
-                            onFilterGestureChange={onFilterGestureChange}
-                            shouldEnter={shouldEnter}
-                        />
-                    }
-                    ListEmptyComponent={
-                        <View className="mt-8 rounded-[28px] border border-border bg-surface p-5">
+                {timeline.loading ? (
+                    <View className="flex-1 items-center justify-center">
+                        <ActivityIndicator color={mediumColor} accessibilityLabel="Loading your timeline" />
+                    </View>
+                ) : timeline.error ? (
+                    <View className="flex-1 items-center justify-center px-6">
+                        <View className="w-full rounded-[28px] border border-border bg-surface p-5">
                             <AppText variant="title" className="text-text-high">
-                                {selectedFilter === "All"
-                                    ? "Your story starts here."
-                                    : "Nothing here yet."}
+                                Unable to load your timeline.
                             </AppText>
-                            <AppText className="mt-3 leading-6 text-text-low">
-                                {selectedFilter === "All"
-                                    ? "As you reflect, check in, experiment, and learn, your timeline will grow with you."
-                                    : `You haven't recorded any ${selectedFilter.toLowerCase()} yet.`}
+                            <AppText className="mt-3 text-text-low">
+                                {timeline.error}
                             </AppText>
+                            <Button
+                                variant="secondary"
+                                onPress={() => void timeline.refresh()}
+                                className="mt-5"
+                            >
+                                <AppText variant="button" className="text-text-high">
+                                    Try again
+                                </AppText>
+                            </Button>
                         </View>
-                    }
-                    refreshing={refreshing}
-                    onRefresh={refresh}
-                    showsVerticalScrollIndicator={false}
-                    stickySectionHeadersEnabled={false}
-                    contentContainerClassName="px-5 pb-24"
-                    initialNumToRender={8}
-                    maxToRenderPerBatch={8}
-                    windowSize={7}
-                />
+                    </View>
+                ) : (
+                    <SectionList
+                        sections={sections}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item }) => (
+                            <TimelineItem
+                                item={item}
+                                onPress={() => handleItemPress(item)}
+                            />
+                        )}
+                        renderSectionHeader={({ section }) => (
+                            <AppText
+                                variant="caption"
+                                className="bg-background pb-3 pt-7 tracking-[1.5px] text-text-low"
+                            >
+                                {section.title.toUpperCase()}
+                            </AppText>
+                        )}
+                        ListHeaderComponent={
+                            <TimelineHeader
+                                selectedFilter={selectedFilter}
+                                onFilterChange={setSelectedFilter}
+                                onFilterGestureChange={onFilterGestureChange}
+                            />
+                        }
+                        ListEmptyComponent={
+                            <View className="mt-8 rounded-[28px] border border-border bg-surface p-5">
+                                <AppText variant="title" className="text-text-high">
+                                    {copy.title}
+                                </AppText>
+                                <AppText className="mt-3 leading-6 text-text-low">
+                                    {copy.description}
+                                </AppText>
+                            </View>
+                        }
+                        ListFooterComponent={
+                            timeline.hasMore || timeline.loadMoreError ? (
+                                <View className="items-center py-6">
+                                    {timeline.loadingMore ? (
+                                        <ActivityIndicator color={mediumColor} accessibilityLabel="Loading more timeline events" />
+                                    ) : timeline.loadMoreError ? (
+                                        <AppText variant="caption" className="text-red-600">
+                                            {timeline.loadMoreError}
+                                        </AppText>
+                                    ) : null}
+                                </View>
+                            ) : null
+                        }
+                        onEndReached={handleLoadMore}
+                        onEndReachedThreshold={0.4}
+                        showsVerticalScrollIndicator={false}
+                        stickySectionHeadersEnabled={false}
+                        contentContainerClassName="px-5 pb-24"
+                        initialNumToRender={8}
+                        maxToRenderPerBatch={8}
+                        windowSize={7}
+                    />
+                )}
             </Animated.View>
         </View>
     );
@@ -162,41 +211,22 @@ function TimelineHeader({
     selectedFilter,
     onFilterChange,
     onFilterGestureChange,
-    shouldEnter,
 }: {
     selectedFilter: TimelineFilter;
     onFilterChange: (filter: TimelineFilter) => void;
     onFilterGestureChange?: (pagerEnabled: boolean) => void;
-    shouldEnter: boolean;
 }) {
-    const backgroundColor = useResolveClassNames('bg-background');
+    const backgroundColor = useResolveClassNames("bg-background");
     const gradientEndColor = backgroundColor.color ?? "#F2F2F2";
 
     return (
         <>
-            <Animated.View
-                className="pt-8"
-            >
+            <Animated.View className="pt-8">
                 <AppText variant="title" className="text-[18px] text-text-high">
                     Timeline
                 </AppText>
                 <AppText variant="caption" className="mt-1 text-text-low">
                     Your journey with Aks, over time.
-                </AppText>
-            </Animated.View>
-
-            <Animated.View
-                className="mt-8"
-            >
-                <AppText variant="caption" className="mb-2 tracking-[1.5px] text-text-low">
-                    YOUR JOURNEY
-                </AppText>
-                <AppText variant="display" className="text-text-high">
-                    Your story, as it unfolds.
-                </AppText>
-                <AppText className="mt-3 leading-6 text-text-low">
-                    See the moments, patterns, experiments, and learnings that
-                    shaped your journey with Aks.
                 </AppText>
             </Animated.View>
 
@@ -213,9 +243,9 @@ function TimelineHeader({
                     contentContainerClassName="pr-5"
                     className="-mx-5 mt-7 px-5"
                 >
-                    {timelineFilters.map((filter, index) => {
+                    {TIMELINE_FILTERS.map((filter, index) => {
                         const selected = selectedFilter === filter;
-                        const isLast = index === timelineFilters.length - 1;
+                        const isLast = index === TIMELINE_FILTERS.length - 1;
 
                         return (
                             <Pressable
@@ -258,45 +288,48 @@ function TimelineHeader({
 
 const TimelineItem = memo(function TimelineItem({
     item,
+    onPress,
 }: {
-    item: TimelineEvent;
+    item: TimelineItem;
+    onPress: () => void;
 }) {
     const iconColor = useResolveClassNames("text-text-medium").color;
 
     return (
-        <Animated.View
+        <Pressable
+            onPress={onPress}
             className="mb-3 rounded-[28px] border border-border bg-surface p-5"
         >
             <View className="flex-row items-start">
                 <View className="mr-4 size-11 items-center justify-center rounded-2xl bg-background">
                     <HugeiconsIcon
-                        icon={item.icon}
+                        icon={eventTypeIcons[item.eventType]}
                         size={21}
                         color={iconColor}
                     />
                 </View>
                 <View className="flex-1">
-                    {item.annotation ? (
-                        <View className="mb-2 self-start rounded-full bg-background px-3 py-1">
-                            <AppText
-                                variant="caption"
-                                className="text-[10px] tracking-[0.8px] text-text-medium"
-                            >
-                                {item.annotation.toUpperCase()}
-                            </AppText>
-                        </View>
-                    ) : null}
                     <AppText variant="button" className="text-text-high">
                         {item.title}
                     </AppText>
-                    <AppText className="mt-2 leading-6 text-text-low">
-                        {item.description}
-                    </AppText>
+                    {item.description ? (
+                        <AppText className="mt-2 leading-6 text-text-low">
+                            {item.description}
+                        </AppText>
+                    ) : null}
                     <AppText variant="caption" className="mt-3 text-text-disabled">
-                        {item.group} · {item.time}
+                        {eventTypeToLabel[item.eventType]} · {formatTime(item.createdAt)}
                     </AppText>
                 </View>
+                <View className="ml-3 self-center">
+                    <HugeiconsIcon
+                        icon={ArrowRight01Icon}
+                        size={18}
+                        color={iconColor}
+                        strokeWidth={1.6}
+                    />
+                </View>
             </View>
-        </Animated.View>
+        </Pressable>
     );
 });

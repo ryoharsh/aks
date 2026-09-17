@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { Uniwind } from "uniwind";
 
 type ThemeMode = "light" | "dark" | "system";
 
@@ -14,14 +15,18 @@ export function ThemeProvider({
 }: {
     children: React.ReactNode;
 }) {
-    const [mode, setMode] = useState<ThemeMode>("light");
+    const [mode, setModeState] = useState<ThemeMode>("system");
+    const setMode = useCallback((nextMode: ThemeMode) => {
+        Uniwind.setTheme(nextMode);
+        setModeState(nextMode);
+    }, []);
 
     const value = useMemo(
         () => ({
             mode,
             setMode,
         }),
-        [mode]
+        [mode, setMode]
     );
 
     return (

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
@@ -29,6 +29,7 @@ import Animated, {
 
 import MirrorScreen from "@/screens/mirror/MirrorScreen";
 import TimelineScreen from "@/screens/timeline/TimelineScreen";
+import { navigationBus } from "@/services/navigationBus";
 import YouNavigator from "./YouNavigator";
 import type { RootStackParamList } from "./routes";
 
@@ -87,13 +88,17 @@ export default function MainNavigator() {
   const activeColor = useResolveClassNames("text-text-high");
   const inactiveColor = useResolveClassNames("text-text-low");
 
-  const goToPage = (index: number) => {
+  const goToPage = useCallback((index: number) => {
     scrollRef.current?.scrollTo({
       x: SCREEN_WIDTH * index,
       y: 0,
       animated: true,
     });
-  };
+  }, [SCREEN_WIDTH]);
+
+  useEffect(() => {
+    return navigationBus.subscribe(() => goToPage(2));
+  }, [goToPage]);
 
   const handleMirrorPress = () => {
     if (currentIndex === 1) {

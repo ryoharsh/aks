@@ -19,6 +19,8 @@ import Button from "@/components/ui/Button";
 import Checkbox from "@/components/ui/Checkbox";
 import LogoMark from "@/components/common/LogoMark";
 import type { RootStackParamList } from "@/navigation/routes";
+import { useAppFlow } from "@/providers/AppFlowProvider";
+import { Alert } from "react-native";
 
 type Props = NativeStackScreenProps<
     RootStackParamList,
@@ -29,11 +31,19 @@ export default function LegalAcceptanceScreen({
     navigation,
 }: Props) {
     const [accepted, setAccepted] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const { acceptLegal, error, retry } = useAppFlow();
 
-    const handleContinue = () => {
-        if (!accepted) return;
-
-        navigation.replace("Main");
+    const handleContinue = async () => {
+        if (!accepted || loading) return;
+        try {
+            setLoading(true);
+            await acceptLegal();
+        } catch {
+            Alert.alert("Unable to save acceptance", "Check your connection and try again.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -176,6 +186,7 @@ export default function LegalAcceptanceScreen({
                         <Button
                             variant="primary"
                             disabled={!accepted}
+                            loading={loading}
                             onPress={handleContinue}
                             className="rounded-2xl"
                         >
@@ -186,6 +197,12 @@ export default function LegalAcceptanceScreen({
                                 Continue to Aks
                             </AppText>
                         </Button>
+
+                        {error ? (
+                            <AppText onPress={retry} variant="caption" className="mt-3 text-center text-red-600 underline">
+                                {error} Retry
+                            </AppText>
+                        ) : null}
 
                         <AppText
                             variant="caption"

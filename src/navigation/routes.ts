@@ -6,7 +6,7 @@ export type RootStackParamList = {
   Auth: undefined;
   LegalAcceptance: undefined;
   Main: undefined;
-  AiConversation: undefined;
+  AiConversation: { conversationId?: string } | undefined;
   Terms: undefined;
   PrivacyPolicy: undefined;
 };
@@ -21,7 +21,7 @@ export type YouStackParamList = {
   YourData: NavigatorScreenParams<YourDataStackParamList> | undefined;
     Notifications: undefined;
     Appearance: undefined;
-    Privacy: undefined;
+    Privacy: NavigatorScreenParams<PrivacyStackParamList> | undefined;
     HelpFeedback: undefined;
     Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
 };
@@ -29,6 +29,7 @@ export type YouStackParamList = {
   export type SettingsStackParamList = {
     SettingsHome: undefined;
     Profile: undefined;
+    Account: undefined;
     Exploring: undefined;
     NoticeAreas: undefined;
     Timezone: undefined;
@@ -43,9 +44,17 @@ export type YouStackParamList = {
     ConversationDetail: { conversationId: string };
     Reflections: undefined;
     CheckIns: undefined;
+    Memories: undefined;
     Patterns: undefined;
+    MemoryDetail: { memoryId: string };
+    PatternDetail: { patternId: string };
     Experiments: undefined;
+    ExperimentSetup: { patternId: string };
+    ExperimentDetail: { experimentId: string };
     Learnings: undefined;
+    LearningDetail: { learningId: string };
+    Insights: undefined;
+    InsightDetail: { insightId: string };
   };
 
   export type HelpFeedbackStackParamList = {
@@ -53,4 +62,12 @@ export type YouStackParamList = {
     FAQ: undefined;
     ReportProblem: undefined;
     SendFeedback: undefined;
+  };
+
+  export type PrivacyStackParamList = {
+    PrivacyHome: undefined;
+    DataUsage: undefined;
+    DataAccess: undefined;
+    ExportData: undefined;
+    DeleteData: undefined;
   };

@@ -38,7 +38,7 @@ export default function Checkbox({
             {...props}
             disabled={disabled}
             accessibilityRole="checkbox"
-            accessibilityState={{ checked, disabled }}
+            accessibilityState={{ checked, disabled: Boolean(disabled) }}
             accessibilityLabel={accessibilityLabel}
             hitSlop={8}
             onPress={() => onCheckedChange(!checked)}

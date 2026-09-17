@@ -1,17 +1,34 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { SparklesIcon } from "@hugeicons/core-free-icons";
-
 import DataCategoryScreen from "@/components/data/DataCategoryScreen";
+import { usePatterns } from "@/hooks/usePatterns";
+import { formatDate } from "@/lib/date";
 import type { YourDataStackParamList } from "@/navigation/routes";
 
 type Props = NativeStackScreenProps<YourDataStackParamList, "Patterns">;
-
-const items = [
-    { id: "pattern-1", title: "Unscheduled mornings", description: "Your focus often feels clearer on mornings with fewer early commitments.", meta: "Based on recent entries" },
-    { id: "pattern-2", title: "Movement and energy", description: "Brief walks often appear near check-ins where your energy improved.", meta: "Possible pattern" },
-    { id: "pattern-3", title: "Task size and momentum", description: "Smaller first steps may make difficult tasks easier to begin.", meta: "Worth exploring" },
-];
-
 export default function PatternsDataScreen({ navigation }: Props) {
-    return <DataCategoryScreen headerTitle="Patterns" eyebrow="YOUR PATTERNS" title="Connections worth noticing." description="Review possible patterns Aks has organized from the activity you provide." icon={SparklesIcon} items={items} emptyTitle="No patterns yet." emptyDescription="Patterns will appear as you add enough reflections, check-ins, and experiment outcomes." onBack={() => navigation.goBack()} />;
+    const patterns = usePatterns();
+    return <DataCategoryScreen
+        headerTitle="Patterns"
+        eyebrow="YOUR PATTERNS"
+        title="Connections worth noticing."
+        description="Possible relationships grounded in repeated signals from what you've shared."
+        icon={SparklesIcon}
+        items={patterns.items.map((pattern) => ({ id: pattern.id, title: pattern.title, description: pattern.description, meta: `${statusLabel(pattern.status)} · ${pattern.evidenceCount} observations · ${formatDate(pattern.lastObservedAt)}` }))}
+        emptyTitle="No patterns yet."
+        emptyDescription="Aks needs a little more time and evidence before it can spot useful connections."
+        onBack={() => navigation.goBack()}
+        onItemPress={(patternId) => navigation.navigate("PatternDetail", { patternId })}
+        loading={patterns.loading}
+        loadingMore={patterns.loadingMore}
+        hasMore={patterns.hasMore}
+        error={patterns.error}
+        loadMoreError={patterns.loadMoreError}
+        onRetry={() => void patterns.refresh()}
+        onLoadMore={() => void patterns.loadMore()}
+    />;
+}
+
+function statusLabel(status: string) {
+    return status === "possible" ? "Possible pattern" : status === "not_supported" ? "Not supported" : status === "supported" ? "Supported" : status === "testing" ? "Being tested" : "Candidate";
 }

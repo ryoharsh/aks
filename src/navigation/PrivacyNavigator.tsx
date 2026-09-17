@@ -5,14 +5,7 @@ import DataUsageScreen from "@/screens/you/privacy/DataUsageScreen";
 import DataAccessScreen from "@/screens/you/privacy/DataAccessScreen";
 import ExportDataScreen from "@/screens/you/privacy/ExportDataScreen";
 import DeleteDataScreen from "@/screens/you/privacy/DeleteDataScreen";
-
-export type PrivacyStackParamList = {
-    PrivacyHome: undefined;
-    DataUsage: undefined;
-    DataAccess: undefined;
-    ExportData: undefined;
-    DeleteData: undefined;
-};
+import type { PrivacyStackParamList } from "@/navigation/routes";
 
 const Stack = createNativeStackNavigator<PrivacyStackParamList>();
 

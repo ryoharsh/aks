@@ -8,6 +8,7 @@ import TimezoneScreen from "@/screens/you/setting/TimezoneScreen";
 import LanguageScreen from "@/screens/you/setting/LanguageScreen";
 import SubscriptionScreen from "@/screens/you/setting/SubscriptionScreen";
 import AboutAksScreen from "@/screens/you/setting/AboutAksScreen";
+import AccountScreen from "@/screens/you/setting/AccountScreen";
 import type { SettingsStackParamList } from "@/navigation/routes";
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
@@ -23,6 +24,7 @@ export default function SettingsNavigator() {
         >
             <Stack.Screen name="SettingsHome" component={SettingsScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="Account" component={AccountScreen} />
             <Stack.Screen name="Exploring" component={ExploringScreen} />
             <Stack.Screen name="NoticeAreas" component={NoticeAreasScreen} />
             <Stack.Screen name="Timezone" component={TimezoneScreen} />

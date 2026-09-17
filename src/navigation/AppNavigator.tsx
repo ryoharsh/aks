@@ -12,57 +12,35 @@ import AiConversationScreen from "@/screens/mirror/AiConversationScreen";
 
 import AuthNavigator from "./AuthNavigator";
 import MainNavigator from "./MainNavigator";
+import { useAppFlow } from "@/providers/AppFlowProvider";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
+  const { state } = useAppFlow();
+
   return (
     <Stack.Navigator
-      initialRouteName="Splash"
+      key={state}
       screenOptions={{
         headerShown: false,
         animation: "fade",
       }}
     >
-      {/* Entry */}
-      <Stack.Screen
-        name="Splash"
-        component={SplashScreen}
-      />
-
-      <Stack.Screen
-        name="Onboarding"
-        component={OnboardingScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
-
-      {/* Authentication */}
-      <Stack.Screen
-        name="Auth"
-        component={AuthNavigator}
-      />
-
-      {/* Legal */}
-      <Stack.Screen
-        name="LegalAcceptance"
-        component={LegalAcceptanceScreen}
-      />
-
-      {/* Authenticated application */}
-      <Stack.Screen
-        name="Main"
-        component={MainNavigator}
-      />
-
-      <Stack.Screen
-        name="AiConversation"
-        component={AiConversationScreen}
-        options={{
-          animation: "slide_from_bottom",
-        }}
-      />
+      {state === "loading" ? <Stack.Screen name="Splash" component={SplashScreen} /> : null}
+      {state === "onboarding" ? <Stack.Screen name="Onboarding" component={OnboardingScreen} /> : null}
+      {state === "auth" ? <Stack.Screen name="Auth" component={AuthNavigator} /> : null}
+      {state === "legal" ? <Stack.Screen name="LegalAcceptance" component={LegalAcceptanceScreen} /> : null}
+      {state === "main" ? (
+        <>
+          <Stack.Screen name="Main" component={MainNavigator} />
+          <Stack.Screen
+            name="AiConversation"
+            component={AiConversationScreen}
+            options={{ animation: "slide_from_bottom" }}
+          />
+        </>
+      ) : null}
 
       <Stack.Screen
         name="Terms"

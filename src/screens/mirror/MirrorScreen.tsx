@@ -16,6 +16,7 @@ import {
     useAudioRecorder,
     useAudioRecorderState,
 } from "expo-audio";
+import { File } from "expo-file-system";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
     ArrowUp01Icon,
@@ -30,28 +31,16 @@ import { useResolveClassNames } from "uniwind";
 import IconButton from "@/components/ui/IconButton";
 import AppText from "@/components/ui/Text";
 import { cn } from "@/lib/cn";
+import { useAuth } from "@/hooks/useAuth";
+import { useMirror } from "@/hooks/useMirror";
+import type { Message as StoredMessage } from "@/types/data";
 
 type MirrorScreenProps = {
     shouldEnter: boolean;
     isActive: boolean;
 };
 
-export type MirrorMessage = {
-    id: string;
-    role: "user" | "aks";
-    content: string;
-};
-
-type ProcessingState = "idle" | "thinking" | "error";
 type CheckIn = "Good" | "Okay" | "Chaos";
-
-export type MirrorSubmission = {
-    kind: "text" | "voice" | "check-in";
-    text?: string;
-    audioUri?: string;
-    checkIn?: CheckIn;
-    createdAt: string;
-};
 
 const topics = [
     "Focus",
@@ -64,23 +53,6 @@ const topics = [
 ] as const;
 
 const checkIns: CheckIn[] = ["Good", "Okay", "Chaos"];
-
-const initialMessages: MirrorMessage[] = [
-    {
-        id: "welcome",
-        role: "aks",
-        content:
-            "I’ll help you notice what repeats, what changes, and what might be worth testing.",
-    },
-];
-
-// Typed integration boundary. Replace this with the Aks API/store; it does not
-// fabricate assistant responses, persistence, patterns, or transcription.
-export async function submitToAks(
-    _submission: MirrorSubmission,
-): Promise<void> {
-    throw new Error("MIRROR_BACKEND_NOT_CONFIGURED");
-}
 
 function formatDuration(milliseconds: number) {
     const seconds = Math.floor(milliseconds / 1000);
@@ -100,6 +72,9 @@ function ChoiceChip({
     return (
         <Pressable
             onPress={onPress}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            accessibilityState={{ selected }}
             android_ripple={{ color: "rgba(0,0,0,0.06)" }}
             className={cn(
                 "mr-2.5 rounded-full border px-4 py-2.5",
@@ -118,7 +93,7 @@ function ChoiceChip({
     );
 }
 
-function Message({ message }: { message: MirrorMessage }) {
+function Message({ message }: { message: StoredMessage }) {
     const isUser = message.role === "user";
 
     return (
@@ -156,48 +131,30 @@ export default function MirrorScreen({
     shouldEnter,
     isActive,
 }: MirrorScreenProps) {
-    const listRef = useRef<FlatList<MirrorMessage>>(null);
+    const listRef = useRef<FlatList<StoredMessage>>(null);
     const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
     const recorderState = useAudioRecorderState(audioRecorder, 250);
 
-    const [messages, setMessages] = useState<MirrorMessage[]>(initialMessages);
     const [draft, setDraft] = useState("");
     const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
     const [selectedCheckIn, setSelectedCheckIn] = useState<CheckIn | null>(null);
-    const [processing, setProcessing] = useState<ProcessingState>("idle");
     const [voiceReady, setVoiceReady] = useState(false);
+    const { user } = useAuth();
+    const mirror = useMirror();
 
     const highColor = useResolveClassNames("text-text-high").color ?? "#171717";
     const lowColor = useResolveClassNames("text-text-low").color ?? "#737373";
     const foregroundColor =
         useResolveClassNames("text-primary-foreground").color ?? "#FFFFFF";
 
-    const appendMessage = (role: MirrorMessage["role"], content: string) => {
-        setMessages((current) => [
-            ...current,
-            { id: `${Date.now()}-${role}`, role, content },
-        ]);
-        requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
-    };
-
-    const submit = async (submission: MirrorSubmission) => {
-        setProcessing("thinking");
-
-        try {
-            await submitToAks(submission);
-            setProcessing("idle");
-        } catch {
-            setProcessing("error");
-        }
-    };
-
-    const sendDraft = () => {
+    const sendDraft = async () => {
         const text = draft.trim();
-        if (!text || processing === "thinking") return;
-
-        appendMessage("user", text);
-        setDraft("");
-        void submit({ kind: "text", text, createdAt: new Date().toISOString() });
+        if (!text || mirror.processing) return;
+        try {
+            await mirror.sendMessage(text, selectedTopic ? { topic: selectedTopic } : {});
+            setDraft("");
+            requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+        } catch {}
     };
 
     const chooseTopic = (topic: string) => {
@@ -205,20 +162,16 @@ export default function MirrorScreen({
         setDraft(`I’d like to understand my ${topic.toLowerCase()}.`);
     };
 
-    const chooseCheckIn = (checkIn: CheckIn) => {
-        if (processing === "thinking") return;
-        setSelectedCheckIn(checkIn);
-        appendMessage("user", `Today feels ${checkIn.toLowerCase()}.`);
-        void submit({
-            kind: "check-in",
-            checkIn,
-            createdAt: new Date().toISOString(),
-        });
+    const chooseCheckIn = async (checkIn: CheckIn) => {
+        if (mirror.processing) return;
+        try {
+            await mirror.sendCheckIn(checkIn.toLowerCase());
+            setSelectedCheckIn(checkIn);
+        } catch {}
     };
 
     const startRecording = async () => {
-        setProcessing("idle");
-
+        discardVoice();
         try {
             const permission = await AudioModule.requestRecordingPermissionsAsync();
             if (!permission.granted) {
@@ -251,7 +204,10 @@ export default function MirrorScreen({
             await setAudioModeAsync({ allowsRecording: false });
             setVoiceReady(Boolean(audioRecorder.uri));
         } catch {
-            setProcessing("error");
+            if (audioRecorder.uri) {
+                try { new File(audioRecorder.uri).delete(); } catch {}
+            }
+            Alert.alert("Couldn't stop recording", "Please try again.");
         }
     };
 
@@ -259,20 +215,31 @@ export default function MirrorScreen({
         if (!audioRecorder.uri) return;
 
         setVoiceReady(false);
-        appendMessage("user", "Voice reflection recorded");
-        void submit({
-            kind: "voice",
-            audioUri: audioRecorder.uri,
-            createdAt: new Date().toISOString(),
-        });
+        const uri = audioRecorder.uri;
+        void mirror.sendVoice(uri)
+            .catch(() => Alert.alert("Voice processing unavailable", "Your recording was not uploaded or added to your data."))
+            .finally(() => {
+                try { new File(uri).delete(); } catch {}
+            });
+    };
+
+    const discardVoice = () => {
+        const uri = audioRecorder.uri;
+        setVoiceReady(false);
+        if (uri) {
+            try { new File(uri).delete(); } catch {}
+        }
     };
 
     useEffect(() => {
         if (!isActive && recorderState.isRecording) {
             Keyboard.dismiss();
-            void audioRecorder.stop().finally(() => {
+            void audioRecorder.stop().catch(() => undefined).finally(() => {
                 void setAudioModeAsync({ allowsRecording: false });
                 setVoiceReady(false);
+                if (audioRecorder.uri) {
+                    try { new File(audioRecorder.uri).delete(); } catch {}
+                }
             });
         }
     }, [audioRecorder, isActive, recorderState.isRecording]);
@@ -295,7 +262,7 @@ export default function MirrorScreen({
                 >
                     <FlatList
                         ref={listRef}
-                        data={messages}
+                        data={mirror.messages}
                         keyExtractor={(item) => item.id}
                         renderItem={({ item }) => <Message message={item} />}
                         showsVerticalScrollIndicator={false}
@@ -312,7 +279,7 @@ export default function MirrorScreen({
                                         variant="display"
                                         className="mt-4 text-[30px] leading-9.25 text-text-high"
                                     >
-                                        Good morning, Harsh.
+                                        Good morning{user?.name ? `, ${user.name.split(" ")[0]}` : ""}.
                                     </AppText>
                                     <AppText className="mt-3 max-w-[320px] leading-6 text-text-low">
                                         I’m Aks. Let’s start with something small.
@@ -360,13 +327,13 @@ export default function MirrorScreen({
                         }
                         ListFooterComponent={
                             <View>
-                                {processing === "thinking" ? (
+                                {mirror.processing ? (
                                     <Animated.View entering={FadeIn.duration(180)} className="pb-5">
                                         <AppText className="text-text-low">Finding the signal…</AppText>
                                     </Animated.View>
                                 ) : null}
 
-                                {processing === "error" ? (
+                                {mirror.error ? (
                                     <Animated.View
                                         entering={FadeIn.duration(200)}
                                         className="mb-4 rounded-3xl border border-border bg-surface p-4"
@@ -383,16 +350,9 @@ export default function MirrorScreen({
                                                     Something went wrong.
                                                 </AppText>
                                                 <AppText className="mt-1 text-text-low">
-                                                    Aks isn’t connected yet, so this wasn’t saved or processed.
+                                                    {mirror.error}
                                                 </AppText>
-                                                <Pressable
-                                                    onPress={() => setProcessing("idle")}
-                                                    className="mt-3 self-start py-1"
-                                                >
-                                                    <AppText variant="button" className="text-text-high">
-                                                        Dismiss
-                                                    </AppText>
-                                                </Pressable>
+                                                <Pressable onPress={() => mirror.canRetry ? void mirror.retry() : mirror.dismissError()} className="mt-3 self-start py-1"><AppText variant="button" className="text-text-high">{mirror.canRetry ? "Retry response" : "Dismiss"}</AppText></Pressable>
                                             </View>
                                         </View>
                                     </Animated.View>
@@ -444,7 +404,7 @@ export default function MirrorScreen({
                                 </View>
                                 <IconButton
                                     accessibilityLabel="Discard recording"
-                                    onPress={() => setVoiceReady(false)}
+                                    onPress={discardVoice}
                                 >
                                     <HugeiconsIcon icon={Cancel01Icon} size={19} color={lowColor} />
                                 </IconButton>
@@ -476,8 +436,8 @@ export default function MirrorScreen({
                             {draft.trim() ? (
                                 <IconButton
                                     accessibilityLabel="Send message"
-                                    onPress={sendDraft}
-                                    disabled={processing === "thinking"}
+                                    onPress={() => void sendDraft()}
+                                    disabled={mirror.processing}
                                     className="ml-2 bg-primary"
                                 >
                                     <HugeiconsIcon

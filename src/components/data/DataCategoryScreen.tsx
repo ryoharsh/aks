@@ -1,4 +1,4 @@
-import { ScrollView, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react-native";
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
@@ -6,6 +6,7 @@ import { useResolveClassNames } from "uniwind";
 
 import AppText from "@/components/ui/Text";
 import IconButton from "@/components/ui/IconButton";
+import Button from "@/components/ui/Button";
 
 type DataItem = {
     id: string;
@@ -24,6 +25,14 @@ type DataCategoryScreenProps = {
     emptyTitle: string;
     emptyDescription: string;
     onBack: () => void;
+    loading?: boolean;
+    loadingMore?: boolean;
+    hasMore?: boolean;
+    error?: string | null;
+    loadMoreError?: string | null;
+    onRetry?: () => void;
+    onLoadMore?: () => void;
+    onItemPress?: (id: string) => void;
 };
 
 export default function DataCategoryScreen({
@@ -36,6 +45,14 @@ export default function DataCategoryScreen({
     emptyTitle,
     emptyDescription,
     onBack,
+    loading = false,
+    loadingMore = false,
+    hasMore = false,
+    error,
+    loadMoreError,
+    onRetry,
+    onLoadMore,
+    onItemPress,
 }: DataCategoryScreenProps) {
     const iconColor = useResolveClassNames("text-text-medium").color;
 
@@ -57,10 +74,18 @@ export default function DataCategoryScreen({
 
                 <Animated.View entering={FadeInUp.duration(450).delay(150)} className="mt-9">
                     <AppText variant="caption" className="mb-3 tracking-[1.5px] text-text-low">RECENT</AppText>
-                    {items.length > 0 ? (
+                    {loading ? (
+                        <View className="items-center py-10"><ActivityIndicator color={iconColor} accessibilityLabel={`Loading ${headerTitle}`} /></View>
+                    ) : error ? (
+                        <View className="rounded-[28px] border border-border bg-surface p-5">
+                            <AppText variant="title" className="text-text-high">Unable to load this data.</AppText>
+                            <AppText className="mt-3 text-text-low">{error}</AppText>
+                            {onRetry ? <Button variant="secondary" onPress={onRetry} className="mt-5"><AppText variant="button" className="text-text-high">Try again</AppText></Button> : null}
+                        </View>
+                    ) : items.length > 0 ? (
                         <View className="overflow-hidden rounded-[28px] border border-border bg-surface">
                             {items.map((item, index) => (
-                                <View key={item.id} className={`flex-row px-5 py-5 ${index < items.length - 1 ? "border-b border-border" : ""}`}>
+                                <Pressable key={item.id} disabled={!onItemPress} onPress={() => onItemPress?.(item.id)} className={`flex-row px-5 py-5 ${index < items.length - 1 ? "border-b border-border" : ""}`}>
                                     <View className="mr-4 size-11 items-center justify-center rounded-2xl bg-background">
                                         <HugeiconsIcon icon={icon} size={21} color={iconColor} />
                                     </View>
@@ -69,8 +94,14 @@ export default function DataCategoryScreen({
                                         <AppText variant="caption" className="mt-1 leading-5 text-text-low">{item.description}</AppText>
                                         <AppText variant="caption" className="mt-2 text-text-disabled">{item.meta}</AppText>
                                     </View>
-                                </View>
+                                </Pressable>
                             ))}
+                            {hasMore && onLoadMore ? (
+                                <Button variant="ghost" onPress={onLoadMore} loading={loadingMore} className="border-t border-border">
+                                    <AppText variant="button" className="text-text-medium">Load more</AppText>
+                                </Button>
+                            ) : null}
+                            {loadMoreError ? <AppText variant="caption" className="px-5 py-3 text-red-600">{loadMoreError}</AppText> : null}
                         </View>
                     ) : (
                         <View className="rounded-[28px] border border-border bg-surface p-5">
@@ -80,10 +111,6 @@ export default function DataCategoryScreen({
                     )}
                 </Animated.View>
 
-                <Animated.View entering={FadeInUp.duration(450).delay(220)} className="mt-6 rounded-[28px] border border-border bg-surface p-5">
-                    <AppText variant="caption" className="tracking-[1.5px] text-text-low">A NOTE FROM AKS</AppText>
-                    <AppText className="mt-3 leading-6 text-text-low">These are placeholder entries until your account data is connected.</AppText>
-                </Animated.View>
             </ScrollView>
         </View>
     );

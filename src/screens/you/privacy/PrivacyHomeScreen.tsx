@@ -8,7 +8,7 @@ import { useResolveClassNames } from "uniwind";
 
 import AppText from "@/components/ui/Text";
 import IconButton from "@/components/ui/IconButton";
-import type { PrivacyStackParamList } from "@/navigation/PrivacyNavigator";
+import type { PrivacyStackParamList } from "@/navigation/routes";
 import type { RootStackParamList } from "@/navigation/routes";
 
 type Props = NativeStackScreenProps<PrivacyStackParamList, "PrivacyHome">;
