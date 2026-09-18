@@ -4,7 +4,7 @@ import { usePagedData } from "./usePagedData";
 import { dataEvents, type DataEvent } from "@/services/dataEvents";
 import { timelineService } from "@/services/timeline.service";
 import type { PageOptions } from "@/types/data";
-import { timelineFilterToEventType, type TimelineFilter } from "@/types/timeline";
+import { timelineFilterToEventTypes, type TimelineFilter } from "@/types/timeline";
 
 const TIMELINE_EVENTS: DataEvent[] = [
     "conversations",
@@ -23,10 +23,10 @@ const TIMELINE_EVENTS: DataEvent[] = [
 const REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 
 export function useTimeline(filter: TimelineFilter) {
-    const eventType = filter === "All" ? undefined : timelineFilterToEventType[filter];
+    const eventTypes = filter === "All" ? undefined : timelineFilterToEventTypes[filter];
     const loader = useCallback(
-        (options: PageOptions) => timelineService.list({ ...options, eventType }),
-        [eventType],
+        (options: PageOptions) => timelineService.list({ ...options, eventTypes }),
+        [eventTypes],
     );
     const page = usePagedData(loader);
 

@@ -8,6 +8,7 @@ import {
     BookOpen01Icon,
     Chat01Icon,
     CheckListIcon,
+    Link01Icon,
     Note01Icon,
     SparklesIcon,
     Target01Icon,
@@ -55,12 +56,12 @@ export default function YourDataScreen({ navigation }: Props) {
             <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={loading && counts !== null} onRefresh={() => void refresh()} />} contentContainerClassName="px-5 pb-24">
                 <Animated.View entering={FadeInDown.duration(500).delay(80)} className="mt-5">
                     <AppText variant="caption" className="mb-2 tracking-[1.5px] text-text-low">YOUR DATA</AppText>
-                    <AppText variant="display" className="text-text-high">What you've shared.</AppText>
-                    <AppText className="mt-3 leading-6 text-text-low">Aks keeps track of the information you choose to share.</AppText>
+                    <AppText variant="display" className="text-text-high">What Aks remembers.</AppText>
+                    <AppText className="mt-3 leading-6 text-text-low">See the information Aks has gathered from your activity and the things you've chosen to share.</AppText>
                 </Animated.View>
 
                 <Animated.View entering={FadeInUp.duration(450).delay(150)} className="mt-9">
-                    <SectionLabel>OVERVIEW</SectionLabel>
+                    <SectionLabel>AT A GLANCE</SectionLabel>
                     {loading && !counts ? <View className="items-center py-10"><ActivityIndicator color={iconColor} accessibilityLabel="Loading data summary" /></View> : error ? (
                         <View className="rounded-[28px] border border-border bg-surface p-5"><AppText className="text-text-low">{error}</AppText><Button variant="secondary" onPress={() => void refresh()} className="mt-4"><AppText variant="button" className="text-text-high">Try again</AppText></Button></View>
                     ) : (
@@ -77,15 +78,31 @@ export default function YourDataScreen({ navigation }: Props) {
                     <SectionLabel>DATA SOURCES</SectionLabel>
                     <View className="rounded-[28px] border border-border bg-surface">
                         <SourceRow icon={UserCircleIcon} title="Aks" description="Conversations, reflections, and check-ins you choose to share." iconColor={iconColor} />
+                        <SourceRow icon={Link01Icon} title="Connected sources" description="No connected sources. Available when supported." iconColor={iconColor} last />
                     </View>
                 </Animated.View>
 
                 <Animated.View entering={FadeInUp.duration(450).delay(360)} className="mt-9">
                     <SectionLabel>YOUR CHOICE</SectionLabel>
-                    <View className="overflow-hidden rounded-[28px] border border-border bg-surface">
-                        <ActionRow title="Export your data" onPress={() => youNavigation?.navigate("Privacy", { screen: "ExportData" })} iconColor={iconColor} />
-                        <ActionRow title="Delete your data" onPress={() => youNavigation?.navigate("Privacy", { screen: "DeleteData" })} iconColor={iconColor} last />
+                    <View className="rounded-[28px] border border-border bg-surface p-5">
+                        <AppText variant="title" className="text-text-high">You decide what stays.</AppText>
+                        <AppText className="mt-3 leading-6 text-text-low">You can review, export, or delete your information. Aks is designed to keep you in control of your personal data.</AppText>
+                        <View className="mt-5 flex-row flex-wrap gap-3">
+                            <Pressable onPress={() => youNavigation?.navigate("Privacy", { screen: "ExportData" })} className="flex-row items-center rounded-full bg-background px-4 py-3">
+                                <AppText variant="button" className="mr-2 text-text-high">Export data</AppText>
+                                <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={iconColor} />
+                            </Pressable>
+                            <Pressable onPress={() => youNavigation?.navigate("Privacy", { screen: "DeleteData" })} className="flex-row items-center rounded-full bg-background px-4 py-3">
+                                <AppText variant="button" className="mr-2 text-text-high">Delete data</AppText>
+                                <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={iconColor} />
+                            </Pressable>
+                        </View>
                     </View>
+                </Animated.View>
+
+                <Animated.View entering={FadeInUp.duration(450).delay(430)} className="mt-6 rounded-[28px] border border-border bg-surface p-5">
+                    <AppText variant="caption" className="tracking-[1.5px] text-text-low">A NOTE FROM AKS</AppText>
+                    <AppText className="mt-3 leading-6 text-text-low">Your data is what makes Aks personal. It should also remain understandable and under your control.</AppText>
                 </Animated.View>
             </ScrollView>
         </View>
@@ -104,6 +121,3 @@ function SourceRow({ icon, title, description, iconColor }: { icon: IconSvgEleme
     return <View className="flex-row items-center px-5 py-5"><View className="mr-4 size-11 items-center justify-center rounded-2xl bg-background"><HugeiconsIcon icon={icon} size={21} color={iconColor} /></View><View className="flex-1"><AppText variant="button" className="text-text-high">{title}</AppText><AppText variant="caption" className="mt-1 text-text-low">{description}</AppText></View></View>;
 }
 
-function ActionRow({ title, onPress, iconColor, last = false }: { title: string; onPress: () => void; iconColor: React.ComponentProps<typeof HugeiconsIcon>["color"]; last?: boolean }) {
-    return <Pressable onPress={onPress} className={cn("flex-row items-center px-5 py-5", !last && "border-b border-border")}><AppText variant="button" className="flex-1 text-text-high">{title}</AppText><HugeiconsIcon icon={ArrowRight01Icon} size={19} color={iconColor} /></Pressable>;
-}

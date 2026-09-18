@@ -7,6 +7,7 @@ import {
     ArrowLeft01Icon,
     ArrowRight01Icon,
     CreditCardIcon,
+    Globe02Icon,
     InformationCircleIcon,
     ShieldCheckIcon,
     UserIcon,
@@ -60,6 +61,13 @@ export default function SettingsScreen({ navigation }: Props) {
                 </Animated.View>
 
                 <Animated.View entering={FadeInUp.duration(450).delay(290)} className="mt-9">
+                    <SectionLabel>PREFERENCES</SectionLabel>
+                    <View className="overflow-hidden rounded-[28px] border border-border bg-surface">
+                        <SettingsRow icon={Globe02Icon} title="Language" description="English" onPress={() => navigation.navigate("Language")} iconColor={iconColor} last />
+                    </View>
+                </Animated.View>
+
+                <Animated.View entering={FadeInUp.duration(450).delay(360)} className="mt-9">
                     <SectionLabel>ABOUT</SectionLabel>
                     <View className="overflow-hidden rounded-[28px] border border-border bg-surface">
                         <SettingsRow icon={InformationCircleIcon} title="About Aks" description="Learn more about Aks" onPress={() => navigation.navigate("About")} iconColor={iconColor} />
@@ -68,7 +76,7 @@ export default function SettingsScreen({ navigation }: Props) {
                     </View>
                 </Animated.View>
 
-                <Animated.View entering={FadeInUp.duration(450).delay(430)} className="mt-9 items-center">
+                <Animated.View entering={FadeInUp.duration(450).delay(500)} className="mt-9 items-center">
                     <AppText variant="caption" className="text-text-disabled">Version 1.0.0</AppText>
                 </Animated.View>
             </ScrollView>

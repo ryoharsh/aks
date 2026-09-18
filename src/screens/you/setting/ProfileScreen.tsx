@@ -8,7 +8,9 @@ import {
     ArrowLeft01Icon,
     ArrowRight01Icon,
     Camera01Icon,
+    Clock01Icon,
     Edit02Icon,
+    Globe02Icon,
     Mail01Icon,
     SparklesIcon,
     Target01Icon,
@@ -133,9 +135,18 @@ export default function ProfileScreen({ navigation }: Props) {
                 </Animated.View>
 
                 <Animated.View entering={FadeInUp.duration(450).delay(220)} className="mt-9">
+                    <SectionLabel>PREFERENCES</SectionLabel>
+                    <View className="overflow-hidden rounded-[28px] border border-border bg-surface">
+                        <ProfileRow icon={Clock01Icon} title="Timezone" value={Intl.DateTimeFormat().resolvedOptions().timeZone} onPress={() => navigation.navigate("Timezone")} iconColor={iconColor} />
+                        <ProfileRow icon={Globe02Icon} title="Language" value="English" onPress={() => navigation.navigate("Language")} iconColor={iconColor} last />
+                    </View>
+                </Animated.View>
+
+                <Animated.View entering={FadeInUp.duration(450).delay(290)} className="mt-9">
                     <SectionLabel>ACCOUNT</SectionLabel>
                     <View className="overflow-hidden rounded-[28px] border border-border bg-surface">
                         <ProfileRow icon={Mail01Icon} title="Email" value={user?.email ?? "Unavailable"} iconColor={iconColor} />
+                        <ProfileRow icon={UserIcon} title="Member since" value={formatMemberSince(user?.createdAt)} iconColor={iconColor} />
                         <ProfileRow icon={UserIcon} title="Sign-in method" value={formatProvider(user?.provider)} iconColor={iconColor} last />
                     </View>
                 </Animated.View>
@@ -166,6 +177,16 @@ export default function ProfileScreen({ navigation }: Props) {
 function formatProvider(provider?: string | null) {
     if (!provider) return "Email";
     return provider.charAt(0).toUpperCase() + provider.slice(1);
+}
+
+function formatMemberSince(value?: string) {
+    if (!value) return "Unavailable";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Unavailable";
+    return new Intl.DateTimeFormat(undefined, {
+        month: "long",
+        year: "numeric",
+    }).format(date);
 }
 
 function SectionLabel({ children }: { children: string }) {

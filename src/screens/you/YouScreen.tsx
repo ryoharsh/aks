@@ -336,8 +336,8 @@ export default function YouScreen({ navigation, shouldEnter }: Props) {
                         <View className="border-t border-border">
                             <MenuItem
                                 icon={SparklesIcon}
-                                title="Memories"
-                                description="Useful context Aks carries forward"
+                                title="Patterns"
+                                description="Things Aks has noticed"
                                 onPress={() =>
                                     navigation.navigate("YourData", {
                                         screen: "Patterns",

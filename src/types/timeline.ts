@@ -12,7 +12,7 @@ export const TIMELINE_EVENT_TYPES = [
 
 export type TimelineEventType = (typeof TIMELINE_EVENT_TYPES)[number];
 
-export const TIMELINE_FILTERS = ["All", "Insights", "Experiments", "Check-ins", "Decisions"] as const;
+export const TIMELINE_FILTERS = ["All", "Insights", "Experiments", "Check-ins", "Decisions", "Learnings"] as const;
 
 export type TimelineFilter = (typeof TIMELINE_FILTERS)[number];
 
@@ -30,6 +30,21 @@ export type TimelineItem = {
     createdAt: string;
 };
 
+export type TimelineEntryCategory = "insights" | "experiments" | "check-ins" | "decisions" | "learnings" | "all";
+
+export type TimelineEntry = {
+    id: string;
+    source: TimelineItem;
+    sourceIds: string[];
+    type: TimelineEventType;
+    category: TimelineEntryCategory;
+    eyebrow: string | null;
+    title: string;
+    description: string | null;
+    createdAt: string;
+    priority: number;
+};
+
 export type TimelineSection = {
     title: string;
     data: TimelineItem[];
@@ -44,11 +59,12 @@ export type TimelineNavigationTarget =
     | { screen: "Reflections" }
     | { screen: "CheckIns" };
 
-export const timelineFilterToEventType: Record<Exclude<TimelineFilter, "All">, TimelineEventType> = {
-    Insights: "insight",
-    Experiments: "experiment",
-    "Check-ins": "check_in",
-    Decisions: "pattern",
+export const timelineFilterToEventTypes: Record<Exclude<TimelineFilter, "All">, TimelineEventType[]> = {
+    Insights: ["pattern", "insight", "learning"],
+    Experiments: ["experiment"],
+    "Check-ins": ["check_in"],
+    Decisions: ["pattern"],
+    Learnings: ["learning", "reflection"],
 };
 
 export const eventTypeToLabel: Record<TimelineEventType, string> = {

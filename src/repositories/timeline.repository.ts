@@ -9,6 +9,7 @@ type Row = Database["public"]["Tables"]["timeline_events"]["Row"];
 
 export type TimelineListOptions = PageOptions & {
     eventType?: TimelineEventType;
+    eventTypes?: TimelineEventType[];
 };
 
 const mapTimelineEvent = (row: Row): TimelineItem => ({
@@ -33,6 +34,9 @@ export const timelineRepository = {
             .range(from, to + 1);
         if (options.eventType !== undefined) {
             query = query.eq("event_type", options.eventType);
+        }
+        if (options.eventTypes !== undefined && options.eventTypes.length > 0) {
+            query = query.in("event_type", options.eventTypes);
         }
         const { data, error } = await query;
         if (error) throwDataError(error);

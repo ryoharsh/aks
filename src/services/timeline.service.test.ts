@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+    curateTimelineEntries,
     groupTimelineItems,
     timelineTargetFor,
 } from "./timeline.service";
@@ -87,5 +88,59 @@ describe("timelineTargetFor", () => {
 
     it("returns null when a detail screen requires a missing reference id", () => {
         expect(timelineTargetFor(item({ eventType: "conversation", createdAt: new Date().toISOString(), referenceId: null }))).toBeNull();
+    });
+});
+
+describe("curateTimelineEntries", () => {
+    it("keeps semantic entries and reduces conversations to one per day", () => {
+        const now = new Date();
+        const conversation = item({ eventType: "conversation", createdAt: now.toISOString(), title: "First thought" });
+        const secondConversation = item({ eventType: "conversation", createdAt: new Date(now.getTime() - 60_000).toISOString(), title: "Another thought" });
+        const experiment = item({ eventType: "experiment", createdAt: now.toISOString(), metadata: { status: "completed" }, title: "Experiment result" });
+
+        const entries = curateTimelineEntries([conversation, secondConversation, experiment]);
+
+        expect(entries).toHaveLength(2);
+        expect(entries.find((entry) => entry.type === "experiment")?.eyebrow).toBe("OUTCOME RECORDED");
+        expect(entries.filter((entry) => entry.type === "conversation")).toHaveLength(1);
+        expect(entries.find((entry) => entry.type === "conversation")?.title).toBe("First thought");
+        expect(entries.find((entry) => entry.type === "experiment")?.sourceIds).toEqual([experiment.id]);
+    });
+
+    it("keeps conversations from different local days and semantic entries from the same day", () => {
+        const now = new Date();
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const entries = curateTimelineEntries([
+            item({ eventType: "conversation", createdAt: now.toISOString() }),
+            item({ eventType: "conversation", createdAt: yesterday.toISOString() }),
+            item({ eventType: "insight", createdAt: now.toISOString() }),
+            item({ eventType: "check_in", createdAt: now.toISOString() }),
+        ]);
+
+        expect(entries.filter((entry) => entry.type === "conversation")).toHaveLength(2);
+        expect(entries.filter((entry) => entry.createdAt === now.toISOString())).toHaveLength(3);
+    });
+
+    it("labels active and started experiments distinctly", () => {
+        const now = new Date().toISOString();
+        const entries = curateTimelineEntries([
+            item({ eventType: "experiment", createdAt: now, metadata: { status: "active" } }),
+            item({ eventType: "experiment", createdAt: now, metadata: { status: "draft" } }),
+        ]);
+
+        expect(entries.map((entry) => entry.eyebrow).sort()).toEqual(["EXPERIMENT ACTIVE", "EXPERIMENT STARTED"]);
+    });
+
+    it("sorts newest first without mutating raw items", () => {
+        const older = item({ eventType: "learning", createdAt: "2026-09-01T10:00:00.000Z" });
+        const newer = item({ eventType: "pattern", createdAt: "2026-09-02T10:00:00.000Z" });
+        const raw = [older, newer];
+        const snapshot = raw.map((entry) => ({ ...entry, metadata: { ...entry.metadata } }));
+
+        const entries = curateTimelineEntries(raw);
+
+        expect(entries.map((entry) => entry.source.id)).toEqual([newer.id, older.id]);
+        expect(raw).toEqual(snapshot);
     });
 });
