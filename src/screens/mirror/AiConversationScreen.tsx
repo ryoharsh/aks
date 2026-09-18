@@ -224,7 +224,7 @@ export default function MirrorConversationScreen({ route }: Props) {
                                         </View>
                                     </View>
                                 ))}
-</View>
+                            </View>
                         ) : null}
                         {mirror.voiceActive ? (
                             <View className="gap-4 pb-8">
@@ -250,8 +250,8 @@ export default function MirrorConversationScreen({ route }: Props) {
                             ? <AppText className="pb-8 text-center text-text-low">Thinking…</AppText>
                             : null}
                         {mirror.loading ? <AppText className="pb-8 text-center text-text-low">Loading conversation…</AppText> : null}
-                        {mirror.processing ? <AppText className="pb-8 text-center text-text-low">Finding the signal…</AppText> : null}
-{mirror.error ? (
+                        {mirror.processing ? <AppText className="pb-8 text-center text-text-low">Aks is thinking…</AppText> : null}
+                        {mirror.error ? (
                             <View className="mb-8 rounded-3xl border border-border bg-surface p-4">
                                 <AppText variant="button" className="text-text-high">Something went wrong.</AppText>
                                 <AppText className="mt-1 text-text-low">{mirror.error}</AppText>
@@ -284,7 +284,7 @@ export function MirrorConversationBottomBar({
     motionRef: React.RefObject<AksMotionHandle | null>;
     mirror: ReturnType<typeof useMirror>;
 }) {
-const [inputVisible, setInputVisible] = useState(false);
+    const [inputVisible, setInputVisible] = useState(false);
     const [message, setMessage] = useState("");
     const [menuOpen, setMenuOpen] = useState(false);
     const inputRef = useRef<TextInput>(null);
@@ -326,7 +326,7 @@ const [inputVisible, setInputVisible] = useState(false);
         }
     }, [message, mirror, motionRef]);
 
-const startVoice = useCallback(() => {
+    const startVoice = useCallback(() => {
         motionRef.current?.conversation("speechStart");
         void mirror.startVoiceConversation();
     }, [mirror, motionRef]);
@@ -409,7 +409,7 @@ const startVoice = useCallback(() => {
                             className="max-h-28 min-h-11 flex-1 py-2 font-satoshi text-[15px] leading-5 text-text-high"
                         />
 
-{hasMessage ? (
+                        {hasMessage ? (
                             <IconButton
                                 accessibilityLabel="Send message"
                                 onPress={() => void handleSend()}
@@ -473,7 +473,7 @@ const startVoice = useCallback(() => {
                     />
                 </Pressable>
 
-<Pressable
+                <Pressable
                     onPress={cancelInput}
                     accessibilityRole="button"
                     accessibilityLabel="Close composer"

@@ -22,6 +22,7 @@ const assistantMessage = {
 const mocks = vi.hoisted(() => ({
     saveUserMessage: vi.fn(),
     processMessage: vi.fn(),
+    processObservations: vi.fn(),
     createCheckIn: vi.fn(),
     createRealtimeSession: vi.fn(),
 }));
@@ -30,7 +31,7 @@ vi.mock("@/services/conversations.service", () => ({
     conversationsService: { saveUserMessage: mocks.saveUserMessage },
 }));
 vi.mock("@/repositories/mirror.repository", () => ({
-    mirrorRepository: { processMessage: mocks.processMessage },
+    mirrorRepository: { processMessage: mocks.processMessage, processObservations: mocks.processObservations },
     MirrorRepositoryError: class MirrorRepositoryError extends Error {
         constructor(public readonly code: string) {
             super(code);
@@ -50,6 +51,7 @@ describe("mirror service", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mocks.saveUserMessage.mockResolvedValue({ conversationId: "conversation-1", message: userMessage });
+        mocks.processObservations.mockResolvedValue({ signalsSaved: 0, signals: [], memoryCandidates: [], patternActions: [] });
     });
 
     it("persists the first message before processing AI", async () => {
@@ -61,6 +63,7 @@ describe("mirror service", () => {
         const result = await mirrorService.sendMessage(null, userMessage.content, "request-1");
         expect(mocks.saveUserMessage).toHaveBeenCalledWith(null, userMessage.content, "request-1", {});
         expect(mocks.processMessage).toHaveBeenCalledWith("conversation-1", "message-user");
+        expect(mocks.processObservations).toHaveBeenCalledWith("conversation-1", "message-user");
         expect(result.assistantMessage).toEqual(assistantMessage);
     });
 
@@ -74,7 +77,10 @@ describe("mirror service", () => {
         mocks.processMessage.mockRejectedValue(new Error("provider failed"));
         const result = await mirrorService.sendMessage(null, userMessage.content, "request-3");
         expect(result.userMessage).toEqual(userMessage);
+        expect(mocks.processObservations).not.toHaveBeenCalled();
         expect(result.assistantMessage).toBeNull();
+        expect(result.assistantMessage).toBeNull();
+    });
         expect(result.processingError?.code).toBe("AI_UNAVAILABLE");
         expect(result.processingError?.retryable).toBe(true);
     });

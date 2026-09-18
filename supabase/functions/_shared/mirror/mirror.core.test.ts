@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { processMirrorTurn } from "./mirror.core.ts";
+import { processConversationTurn, processMirrorTurn, processObservationPipeline } from "./mirror.core.ts";
 import { AIProviderError } from "../ai/types.ts";
 
 function repository() {
@@ -158,5 +158,59 @@ describe("MirrorCore", () => {
         const result = await processMirrorTurn({ repository: data as never, patternRepository: patternRepository as never, conversationId: "conversation", userMessageId: "user-message", ai });
         expect(patternRepository.applyProposal).toHaveBeenCalled();
         expect(result.patternActions).toEqual([{ action: "created", patternId: "pattern", status: "candidate" }]);
+    });
+
+    it("processConversationTurn returns a response without running observation", async () => {
+        const data = repository();
+        const ai = { generate: vi.fn().mockResolvedValue({
+            content: '{"safety":{"risk":"none"},"response":{"text":"What makes beginning difficult?"},"followUp":null}',
+            provider: "fake",
+            model: "fake-model",
+            latencyMs: 2,
+        }) };
+
+        const result = await processConversationTurn({ repository: data as never, conversationId: "conversation", userMessageId: "user-message", ai });
+        expect(result.assistantMessage.id).toBe("assistant");
+        expect(result.observable).toBe(true);
+        expect(data.getSignalsForMessage).not.toHaveBeenCalled();
+        expect(data.saveSignals).not.toHaveBeenCalled();
+    });
+
+    it("processConversationTurn sets observable false for a crisis message", async () => {
+        const data = repository();
+        data.getUserMessage.mockResolvedValue({ id: "user-message", content: "I want to end my life", createdAt: "2026-09-17T10:00:00Z" });
+        data.saveAssistant.mockImplementation(({ content }) => Promise.resolve({ id: "assistant", conversationId: "conversation", role: "assistant", content, replyToMessageId: "user-message", metadata: {}, createdAt: "2026-09-17T10:00:01Z" }));
+        const ai = { generate: vi.fn() };
+
+        const result = await processConversationTurn({ repository: data as never, conversationId: "conversation", userMessageId: "user-message", ai });
+        expect(result.observable).toBe(false);
+        expect(result.assistantMessage.content).toContain("emergency services");
+    });
+
+    it("processObservationPipeline never throws and persists signals", async () => {
+        const data = repository();
+        data.getSignalsForMessage.mockResolvedValue([]);
+        data.getUserMessage.mockResolvedValue({ id: "user-message", content: "Starting is difficult.", createdAt: "2026-09-17T10:00:00Z" });
+        const ai = { generate: vi.fn().mockResolvedValue({
+            content: '{"signals":[{"signalType":"difficulty_starting","value":{"present":true},"confidence":0.8}]}',
+            provider: "fake",
+            model: "fake-model",
+            latencyMs: 2,
+        }) };
+
+        const result = await processObservationPipeline({ repository: data as never, conversationId: "conversation", userMessageId: "user-message", ai });
+        expect(result.signalsSaved).toBe(1);
+        expect(data.saveSignals).toHaveBeenCalled();
+    });
+
+    it("processObservationPipeline returns empty results on error instead of throwing", async () => {
+        const data = repository();
+        data.getUserMessage.mockRejectedValue(new Error("MESSAGE_UNAVAILABLE"));
+        const ai = { generate: vi.fn() };
+
+        const result = await processObservationPipeline({ repository: data as never, conversationId: "conversation", userMessageId: "user-message", ai });
+        expect(result.signalsSaved).toBe(0);
+        expect(result.signals).toEqual([]);
+        expect(ai.generate).not.toHaveBeenCalled();
     });
 });

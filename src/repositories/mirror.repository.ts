@@ -18,6 +18,7 @@ type MirrorFunctionResponse = {
     signals: Array<{ signalType: string; value: Record<string, unknown>; confidence: number | null }>;
     memoryCandidates: Array<{ action: "created" | "updated"; memoryId: string; status: "candidate" | "active" | "rejected" | "archived" }>;
     patternActions: Array<{ action: "created" | "updated"; patternId: string; status: "candidate" | "possible" | "testing" | "supported" | "not_supported" | "archived" }>;
+    observable: boolean;
 };
 
 export class MirrorRepositoryError extends Error {
@@ -62,5 +63,17 @@ export const mirrorRepository = {
             throw new MirrorRepositoryError("INVALID_AI_OUTPUT");
         }
         return data;
+    },
+    async processObservations(conversationId: string, userMessageId: string) {
+        const { data, error } = await supabase.functions.invoke("mirror-observe", {
+            body: { conversationId, userMessageId },
+        });
+        if (error) throw new MirrorRepositoryError("AI_UNAVAILABLE");
+        return data as {
+            signalsSaved: number;
+            signals: Array<{ signalType: string; value: Record<string, unknown>; confidence: number | null }>;
+            memoryCandidates: Array<{ action: "created" | "updated"; memoryId: string; status: "candidate" | "active" | "rejected" | "archived" }>;
+            patternActions: Array<{ action: "created" | "updated"; patternId: string; status: "candidate" | "possible" | "testing" | "supported" | "not_supported" | "archived" }>;
+        };
     },
 };

@@ -326,7 +326,7 @@ const submitVoice = () => {
                             <View>
                                 {mirror.processing ? (
                                     <Animated.View entering={FadeIn.duration(180)} className="pb-5">
-                                        <AppText className="text-text-low">Finding the signal…</AppText>
+                                        <AppText className="text-text-low">Aks is thinking…</AppText>
                                     </Animated.View>
                                 ) : null}
 

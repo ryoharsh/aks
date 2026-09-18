@@ -6,6 +6,7 @@ Apply `migrations/20260917000000_auth_profile_foundation.sql`, then deploy the a
 supabase db push
 supabase functions deploy delete-account
 supabase functions deploy mirror
+supabase functions deploy mirror-observe
 supabase functions deploy experiment
 supabase functions deploy realtime-session
 ```

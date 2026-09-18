@@ -11,11 +11,9 @@ async function processSavedMessage(pending: PendingMirrorTurn): Promise<MirrorTu
         const generated = await mirrorRepository.processMessage(pending.conversationId, pending.userMessage.id);
         dataEvents.emit("messages");
         dataEvents.emit("conversations");
-        if (generated.signals.length) dataEvents.emit("signals");
+        if (generated.observable !== false) runObservation(pending.conversationId, pending.userMessage.id);
         const memoryCandidates = generated.memoryCandidates ?? [];
-        if (memoryCandidates.length) dataEvents.emit("memories");
         const patternActions = generated.patternActions ?? [];
-        if (patternActions.length) dataEvents.emit("patterns");
         return {
             ...pending,
             assistantMessage: generated.assistantMessage,
@@ -50,6 +48,16 @@ async function processSavedMessage(pending: PendingMirrorTurn): Promise<MirrorTu
             },
         };
     }
+}
+
+function runObservation(conversationId: string, userMessageId: string) {
+    void mirrorRepository.processObservations(conversationId, userMessageId)
+        .then((observed) => {
+            if (observed.signalsSaved > 0) dataEvents.emit("signals");
+            if ((observed.memoryCandidates ?? []).length) dataEvents.emit("memories");
+            if ((observed.patternActions ?? []).length) dataEvents.emit("patterns");
+        })
+        .catch(() => undefined);
 }
 
 export const mirrorService = {

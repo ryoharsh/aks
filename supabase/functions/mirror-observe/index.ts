@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-import { processConversationTurn } from "../_shared/mirror/mirror.core.ts";
+import { processObservationPipeline } from "../_shared/mirror/mirror.core.ts";
 import { createMirrorRepository } from "../_shared/mirror/mirror.repository.ts";
 import { createMemoryRepository } from "../_shared/memory/memory.repository.ts";
 import { createPatternRepository } from "../_shared/pattern/pattern.repository.ts";
@@ -48,24 +48,8 @@ Deno.serve(async (request) => {
         const repository = createMirrorRepository(userClient, adminClient, user.id);
         const memoryRepository = createMemoryRepository(userClient, adminClient, user.id);
         const patternRepository = createPatternRepository(userClient, adminClient, user.id);
-        const turn = await processConversationTurn({ repository, memoryRepository, patternRepository, conversationId: body.conversationId, userMessageId: body.userMessageId });
-        return respond({
-            conversationId: turn.conversationId,
-            response: turn.response,
-            assistantMessage: turn.assistantMessage,
-            signalsSaved: 0,
-            signals: [],
-            memoryCandidates: [],
-            patternActions: [],
-            observable: turn.observable,
-        });
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "";
-        if (errorMessage === "ATTEMPTS_EXHAUSTED") return respond({ error: { code: "ATTEMPTS_EXHAUSTED", message: "This response can no longer be retried." } }, 409);
-        if (errorMessage === "RATE_LIMITED") return respond({ error: { code: "RATE_LIMITED", message: "Please wait a moment before trying again." } }, 429);
-        if (["CONVERSATION_UNAVAILABLE", "MESSAGE_UNAVAILABLE"].includes(errorMessage)) return respond({ error: { code: "NOT_FOUND", message: "This conversation is unavailable." } }, 404);
-        if (errorMessage === "MESSAGE_TOO_LARGE") return respond({ error: { code: "INVALID_REQUEST", message: "That message is too long." } }, 400);
-        const code = errorMessage === "INVALID_AI_RESPONSE" ? "INVALID_AI_OUTPUT" : "AI_UNAVAILABLE";
-        return respond({ error: { code, message: "Aks couldn't process that right now." } }, 503);
+        return respond(await processObservationPipeline({ repository, memoryRepository, patternRepository, conversationId: body.conversationId, userMessageId: body.userMessageId }));
+    } catch {
+        return respond({ signalsSaved: 0, signals: [], memoryCandidates: [], patternActions: [] });
     }
 });
