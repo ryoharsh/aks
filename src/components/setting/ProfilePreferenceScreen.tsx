@@ -56,8 +56,17 @@ export default function ProfilePreferenceScreen({ headerTitle, eyebrow, title, d
                 <Animated.View entering={FadeInUp.duration(450).delay(150)} className="mt-9 overflow-hidden rounded-[28px] border border-border bg-surface">
                     {options.map((option, index) => {
                         const selected = selections.includes(option);
-                        return <Pressable key={option} accessibilityRole="checkbox" accessibilityState={{ checked: selected }} onPress={() => setSelections((current) => !multiple ? [option] : current.includes(option) ? current.filter((item) => item !== option) : [...current, option])} className={`flex-row items-center px-5 py-5 ${index < options.length - 1 ? "border-b border-border" : ""}`}><AppText className="flex-1 text-text-high">{option}</AppText>{selected ? <HugeiconsIcon icon={CheckmarkCircle01Icon} size={21} color={activeColor} /> : null}</Pressable>;
+                        return (
+                            <Pressable key={option} accessibilityRole="checkbox" accessibilityState={{ checked: selected }} onPress={() => setSelections((current) => !multiple ? [option] : current.includes(option) ? current.filter((item) => item !== option) : [...current, option])} className={`flex-row items-center px-5 py-5 ${index < options.length - 1 ? "border-b border-border" : ""}`}>
+                                <AppText className="flex-1 text-text-high">{option}</AppText>
+                                {selected ? <HugeiconsIcon icon={CheckmarkCircle01Icon} size={21} color={activeColor} /> : null}
+                            </Pressable>
+                        );
                     })}
+                </Animated.View>
+                <Animated.View entering={FadeInUp.duration(450).delay(220)} className="mt-6 rounded-[28px] border border-border bg-surface p-5">
+                    <AppText variant="caption" className="tracking-[1.5px] text-text-low">SAVED ON THIS DEVICE</AppText>
+                    <AppText className="mt-3 leading-6 text-text-low">These selections are local placeholders until profile storage is connected.</AppText>
                 </Animated.View>
                 <Button onPress={() => void save()} loading={saving} className="mt-6" accessibilityLabel={`Save ${headerTitle}`}>
                     <AppText variant="button" className="text-primary-foreground">Save preferences</AppText>
