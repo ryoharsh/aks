@@ -22,7 +22,7 @@
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ],
-      "package": "com.anonymous.aks"
+      "package": "com.miyal.aks"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -40,7 +40,7 @@
           ]
         }
       ],
-      "expo-splash-screen",
+      // "expo-splash-screen",
       "expo-video",
       "@lottiefiles/dotlottie-react-native/plugin",
       [
