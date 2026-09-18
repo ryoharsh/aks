@@ -215,7 +215,7 @@ export default function MirrorConversationBottomBar({
     return (
         <Animated.View
             style={barStyle}
-            className="px-5 pb-3"
+            className="px-5 pb-3 flex flex-col"
         >
             {inputVisible ? (
                 <Animated.View
@@ -224,7 +224,7 @@ export default function MirrorConversationBottomBar({
                     layout={LinearTransition.springify()
                         .damping(18)
                         .stiffness(160)}
-                    className="absolute bottom-30 left-4 right-4 z-10"
+                    className="mb-2 z-10"
                 >
                     <Animated.View
                         entering={FadeInUp.duration(260)}
@@ -270,7 +270,7 @@ export default function MirrorConversationBottomBar({
                     layout={LinearTransition.springify()
                         .damping(18)
                         .stiffness(170)}
-                    className="absolute bottom-30 right-4 z-10 min-w-52 overflow-hidden rounded-2xl bg-surface/60"
+                    className="z-10 mb-2 ms-35 me-5 min-w-52 overflow-hidden rounded-2xl bg-surface/60"
                 >
                     <Pressable
                         onPress={() => {
@@ -292,7 +292,7 @@ export default function MirrorConversationBottomBar({
                             mirror.processing ||
                             mirror.loading
                         }
-                        className="px-5 py-4"
+                        className="px-5 py-2.5"
                     >
                         <AppText
                             variant="body"

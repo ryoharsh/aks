@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+    KeyboardAvoidingView,
     Pressable,
     ScrollView,
     TextInput,
@@ -88,7 +89,7 @@ export default function FeedbackFormScreen({
     };
 
     return (
-        <View className="flex-1 bg-background">
+        <KeyboardAvoidingView behavior="padding" className="flex-1 bg-background">
             <StatusBar style="dark" />
 
             <Animated.View
@@ -316,6 +317,6 @@ export default function FeedbackFormScreen({
                     </AppText>
                 </Animated.View>
             </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
     );
 }

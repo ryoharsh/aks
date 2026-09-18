@@ -154,7 +154,7 @@ export default function MirrorScreen({
             await mirror.sendMessage(text, selectedTopic ? { topic: selectedTopic } : {});
             setDraft("");
             requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
-        } catch {}
+        } catch { }
     };
 
     const chooseTopic = (topic: string) => {
@@ -167,7 +167,7 @@ export default function MirrorScreen({
         try {
             await mirror.sendCheckIn(checkIn.toLowerCase());
             setSelectedCheckIn(checkIn);
-        } catch {}
+        } catch { }
     };
 
     const startRecording = async () => {
@@ -205,18 +205,18 @@ export default function MirrorScreen({
             setVoiceReady(Boolean(audioRecorder.uri));
         } catch {
             if (audioRecorder.uri) {
-                try { new File(audioRecorder.uri).delete(); } catch {}
+                try { new File(audioRecorder.uri).delete(); } catch { }
             }
             Alert.alert("Couldn't stop recording", "Please try again.");
         }
     };
 
-const submitVoice = () => {
+    const submitVoice = () => {
         if (!audioRecorder.uri) return;
 
         setVoiceReady(false);
         const uri = audioRecorder.uri;
-        try { new File(uri).delete(); } catch {}
+        try { new File(uri).delete(); } catch { }
         Alert.alert("Try voice in a conversation", "Open a conversation to talk with Aks by voice. Its replies are private and stay in your thread.");
     };
 
@@ -224,7 +224,7 @@ const submitVoice = () => {
         const uri = audioRecorder.uri;
         setVoiceReady(false);
         if (uri) {
-            try { new File(uri).delete(); } catch {}
+            try { new File(uri).delete(); } catch { }
         }
     };
 
@@ -235,7 +235,7 @@ const submitVoice = () => {
                 void setAudioModeAsync({ allowsRecording: false });
                 setVoiceReady(false);
                 if (audioRecorder.uri) {
-                    try { new File(audioRecorder.uri).delete(); } catch {}
+                    try { new File(audioRecorder.uri).delete(); } catch { }
                 }
             });
         }
@@ -253,8 +253,8 @@ const submitVoice = () => {
                 className="flex-1"
             >
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : undefined}
-                    keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    keyboardVerticalOffset={40}
                     className="flex-1"
                 >
                     <FlatList

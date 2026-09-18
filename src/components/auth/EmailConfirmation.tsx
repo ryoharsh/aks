@@ -1,4 +1,4 @@
-import { KeyboardAvoidingView, Platform, View } from "react-native";
+import { KeyboardAvoidingView, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 
@@ -16,7 +16,7 @@ type Props = {
 export default function EmailConfirmation({ email, loading, onResend, onEdit }: Props) {
     return (
         <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            behavior="padding"
             className="flex-1 bg-background"
         >
             <StatusBar style="dark" />

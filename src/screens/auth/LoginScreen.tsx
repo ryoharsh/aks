@@ -81,7 +81,7 @@ export default function LoginScreen({ navigation }: Props) {
     return (
         <KeyboardAvoidingView
             className="flex-1 bg-background"
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            behavior="padding"
         >
             <StatusBar style="dark" />
 
@@ -152,8 +152,8 @@ export default function LoginScreen({ navigation }: Props) {
                                 variant="primary"
                                 onPress={handleMagicLink}
                                 loading={loading}
-                                 disabled={!email.trim()}
-                                 accessibilityLabel="Send sign-in link"
+                                disabled={!email.trim()}
+                                accessibilityLabel="Send sign-in link"
                                 className="mt-4 rounded-2xl">
                                 <AppText
                                     variant="button"
@@ -192,11 +192,11 @@ export default function LoginScreen({ navigation }: Props) {
                             entering={FadeInUp.duration(500).delay(250)}
                         >
                             <View className="mb-3 flex-row gap-3">
-                                 <Button
+                                <Button
                                     onPress={() => handleOAuth("google")}
-                                     variant="secondary"
-                                     disabled={loading}
-                                     accessibilityLabel="Continue with Google"
+                                    variant="secondary"
+                                    disabled={loading}
+                                    accessibilityLabel="Continue with Google"
                                     className="flex-1 rounded-full bg-surface"
                                 >
                                     <Image
@@ -214,10 +214,10 @@ export default function LoginScreen({ navigation }: Props) {
                                 </Button>
 
                                 {facebookEnabled ? <Button
-                                     onPress={() => handleOAuth("facebook")}
-                                     variant="secondary"
-                                     disabled={loading}
-                                     accessibilityLabel="Continue with Facebook"
+                                    onPress={() => handleOAuth("facebook")}
+                                    variant="secondary"
+                                    disabled={loading}
+                                    accessibilityLabel="Continue with Facebook"
                                     className="flex-1 rounded-full bg-surface"
                                 >
                                     <Image
@@ -235,11 +235,11 @@ export default function LoginScreen({ navigation }: Props) {
                                 </Button> : null}
                             </View>
 
-                             <Button
+                            <Button
                                 onPress={() => handleOAuth("github")}
-                                 variant="secondary"
-                                 disabled={loading}
-                                 accessibilityLabel="Continue with GitHub"
+                                variant="secondary"
+                                disabled={loading}
+                                accessibilityLabel="Continue with GitHub"
                                 className="rounded-full bg-surface"
                             >
                                 <Image

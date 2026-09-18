@@ -86,7 +86,7 @@ export default function RegisterScreen({ navigation }: Props) {
     return (
         <KeyboardAvoidingView
             className="flex-1 bg-background"
-            behavior={Platform.OS === "ios" ? "padding" : undefined}>
+            behavior="padding">
             <StatusBar style="dark" />
 
             <Animated.View
@@ -140,7 +140,7 @@ export default function RegisterScreen({ navigation }: Props) {
                                 Full name
                             </AppText>
 
-                             <TextInput
+                            <TextInput
                                 value={name}
                                 onChangeText={setName}
                                 autoCapitalize="words"
@@ -148,8 +148,8 @@ export default function RegisterScreen({ navigation }: Props) {
                                 textContentType="name"
                                 placeholder="Your full name"
                                 placeholderTextColor="#A3A3A3"
-                                 className="h-14 rounded-2xl border border-border bg-surface px-4 text-[16px] text-text-high"
-                                 accessibilityLabel="Full name"
+                                className="h-14 rounded-2xl border border-border bg-surface px-4 text-[16px] text-text-high"
+                                accessibilityLabel="Full name"
                             />
                         </Animated.View>
 
@@ -164,7 +164,7 @@ export default function RegisterScreen({ navigation }: Props) {
                                 Email address
                             </AppText>
 
-                             <TextInput
+                            <TextInput
                                 value={email}
                                 onChangeText={setEmail}
                                 autoCapitalize="none"
@@ -173,8 +173,8 @@ export default function RegisterScreen({ navigation }: Props) {
                                 textContentType="emailAddress"
                                 placeholder="you@example.com"
                                 placeholderTextColor="#A3A3A3"
-                                 className="h-14 rounded-2xl border border-border bg-surface px-4 text-[16px] text-text-high"
-                                 accessibilityLabel="Email address"
+                                className="h-14 rounded-2xl border border-border bg-surface px-4 text-[16px] text-text-high"
+                                accessibilityLabel="Email address"
                             />
                         </Animated.View>
 
@@ -185,8 +185,8 @@ export default function RegisterScreen({ navigation }: Props) {
                                 variant="primary"
                                 onPress={handleRegister}
                                 loading={loading}
-                                 disabled={!isValid}
-                                 accessibilityLabel="Create account with email"
+                                disabled={!isValid}
+                                accessibilityLabel="Create account with email"
                                 className="mt-4 rounded-2xl"
                             >
                                 <AppText
@@ -226,11 +226,11 @@ export default function RegisterScreen({ navigation }: Props) {
                             entering={FadeInUp.duration(500).delay(300)}
                         >
                             <View className="mb-3 flex-row gap-3">
-                                 <Button
+                                <Button
                                     onPress={() => handleOAuth("google")}
-                                     variant="secondary"
-                                     disabled={loading}
-                                     accessibilityLabel="Continue with Google"
+                                    variant="secondary"
+                                    disabled={loading}
+                                    accessibilityLabel="Continue with Google"
                                     className="flex-1 rounded-full bg-surface"
                                 >
                                     <Image
@@ -248,10 +248,10 @@ export default function RegisterScreen({ navigation }: Props) {
                                 </Button>
 
                                 {facebookEnabled ? <Button
-                                     onPress={() => handleOAuth("facebook")}
-                                     variant="secondary"
-                                     disabled={loading}
-                                     accessibilityLabel="Continue with Facebook"
+                                    onPress={() => handleOAuth("facebook")}
+                                    variant="secondary"
+                                    disabled={loading}
+                                    accessibilityLabel="Continue with Facebook"
                                     className="flex-1 rounded-full bg-surface"
                                 >
                                     <Image
@@ -269,11 +269,11 @@ export default function RegisterScreen({ navigation }: Props) {
                                 </Button> : null}
                             </View>
 
-                             <Button
+                            <Button
                                 onPress={() => handleOAuth("github")}
-                                 variant="secondary"
-                                 disabled={loading}
-                                 accessibilityLabel="Continue with GitHub"
+                                variant="secondary"
+                                disabled={loading}
+                                accessibilityLabel="Continue with GitHub"
                                 className="rounded-full bg-surface"
                             >
                                 <Image
