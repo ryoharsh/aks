@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import YourDataScreen from "@/screens/you/data/YourDataScreen";
@@ -17,10 +18,22 @@ import InsightDetailScreen from "@/screens/you/data/InsightDetailScreen";
 import ExperimentSetupScreen from "@/screens/you/data/ExperimentSetupScreen";
 import ExperimentDetailScreen from "@/screens/you/data/ExperimentDetailScreen";
 import type { YourDataStackParamList } from "@/navigation/routes";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { navigationBus } from "@/services/navigationBus";
 
 const Stack = createNativeStackNavigator<YourDataStackParamList>();
 
-export default function YourDataNavigator() {
+type Props = NativeStackScreenProps<import("@/navigation/routes").YouStackParamList, "YourData">;
+
+export default function YourDataNavigator({ route }: Props) {
+    useEffect(() => {
+        return () => {
+            if (route.params?.returnToTimeline) {
+                navigationBus.requestMainPage(0);
+            }
+        };
+    }, [route.params?.returnToTimeline]);
+
     return (
         <Stack.Navigator
             initialRouteName="YourDataHome"

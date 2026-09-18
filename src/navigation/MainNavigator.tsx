@@ -97,7 +97,7 @@ export default function MainNavigator() {
   }, [SCREEN_WIDTH]);
 
   useEffect(() => {
-    return navigationBus.subscribe(() => goToPage(2));
+    return navigationBus.subscribeMainPage(goToPage);
   }, [goToPage]);
 
   const handleMirrorPress = () => {

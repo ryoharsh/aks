@@ -11,7 +11,11 @@ export function useTimelineNavigation<RouteName extends keyof YouStackParamList>
 ) {
     useEffect(() => {
         return navigationBus.subscribe((target) => {
-            navigation.navigate("YourData", nestedRoute(target));
+            navigationBus.requestMainPage(2);
+            navigation.navigate("YourData", {
+                ...nestedRoute(target),
+                returnToTimeline: true,
+            });
         });
     }, [navigation]);
 }
