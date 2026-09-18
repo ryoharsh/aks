@@ -31,6 +31,7 @@ function apiKeyForPlatform(): string | null {
 function unavailableState(): SubscriptionState {
     return {
         status: "unavailable",
+        isActive: false,
         options: [],
         offeringIdentifier: null,
         plan: null,

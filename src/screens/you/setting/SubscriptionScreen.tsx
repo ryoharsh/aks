@@ -6,7 +6,7 @@ import {
     ShieldCheckIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, View } from "react-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { useResolveClassNames } from "uniwind";
@@ -23,9 +23,9 @@ import type { SubscriptionOption } from "@/services/subscription/subscription.ty
 type Props = NativeStackScreenProps<SettingsStackParamList, "Subscription">;
 
 function PremiumCard() {
-    const { state, busy, purchase, restore, manage } = useSubscription();
+    const { state, busy, restore, manage } = useSubscription();
     const plan = state.plan;
-    if (state.status !== "active" && state.status !== "cancelled") {
+    if (!state.isActive) {
         return null;
     }
     return (
@@ -87,7 +87,7 @@ function PremiumCard() {
 }
 
 function PlansCard() {
-    const { state, busy } = useSubscription();
+    const { state, busy, purchase, restore, refresh } = useSubscription();
     const [pendingOptionId, setPendingOptionId] = useState<string | null>(null);
 
     if (state.status !== "free" && state.status !== "expired") {
@@ -128,6 +128,16 @@ function PlansCard() {
                     <AppText className="mt-3 text-center text-text-medium">
                         Plans aren't listed right now. Please check back in a moment.
                     </AppText>
+                    <Button
+                        variant="secondary"
+                        disabled={busy}
+                        onPress={() => void refresh()}
+                        className="mt-5"
+                    >
+                        <AppText variant="button" className="text-text-high">
+                            Try again
+                        </AppText>
+                    </Button>
                 </Animated.View>
             ) : (
                 state.options.map((option, index) => (
@@ -175,8 +185,12 @@ function PlansCard() {
 }
 
 export default function SubscriptionScreen({ navigation }: Props) {
-    const { state, notice, refresh } = useSubscription();
+    const { state, notice, refresh, busy } = useSubscription();
     const iconColor = useResolveClassNames("text-text-medium").color;
+
+    useEffect(() => {
+        void refresh();
+    }, [refresh]);
 
     const loading = state.status === "unknown" || state.status === "loading";
 

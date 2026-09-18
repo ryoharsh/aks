@@ -18,15 +18,6 @@ import {
 } from "react-native";
 
 import {
-    AudioModule,
-    RecordingPresets,
-    setAudioModeAsync,
-    useAudioRecorder,
-    useAudioRecorderState,
-} from "expo-audio";
-import { File } from "expo-file-system";
-
-import {
     DotLottie,
     type Dotlottie,
 } from "@lottiefiles/dotlottie-react-native";
@@ -38,6 +29,7 @@ import {
     CommandIcon,
     Menu01Icon,
     Mic01Icon,
+    StopIcon,
 } from "@hugeicons/core-free-icons";
 
 import { useResolveClassNames } from "uniwind";
@@ -232,15 +224,45 @@ export default function MirrorConversationScreen({ route }: Props) {
                                         </View>
                                     </View>
                                 ))}
+</View>
+                        ) : null}
+                        {mirror.voiceActive ? (
+                            <View className="gap-4 pb-8">
+                                {mirror.streamingUserTranscript.trim() ? (
+                                    <View className="ml-10 items-end">
+                                        <AppText variant="caption" className="mb-2 text-text-low">YOU</AppText>
+                                        <View className="rounded-3xl bg-primary px-4 py-3 opacity-90">
+                                            <AppText className="text-primary-foreground">{mirror.streamingUserTranscript}</AppText>
+                                        </View>
+                                    </View>
+                                ) : null}
+                                {mirror.streamingAssistantText.trim() ? (
+                                    <View className="mr-10 items-start">
+                                        <AppText variant="caption" className="mb-2 text-text-low">AKS</AppText>
+                                        <View className="pr-4">
+                                            <AppText className="text-text-high">{mirror.streamingAssistantText}</AppText>
+                                        </View>
+                                    </View>
+                                ) : null}
                             </View>
                         ) : null}
+                        {mirror.voiceActive && mirror.voiceState === "thinking" && !mirror.streamingAssistantText.trim()
+                            ? <AppText className="pb-8 text-center text-text-low">Thinking…</AppText>
+                            : null}
                         {mirror.loading ? <AppText className="pb-8 text-center text-text-low">Loading conversation…</AppText> : null}
                         {mirror.processing ? <AppText className="pb-8 text-center text-text-low">Finding the signal…</AppText> : null}
-                        {mirror.error ? (
+{mirror.error ? (
                             <View className="mb-8 rounded-3xl border border-border bg-surface p-4">
                                 <AppText variant="button" className="text-text-high">Something went wrong.</AppText>
                                 <AppText className="mt-1 text-text-low">{mirror.error}</AppText>
                                 <Pressable onPress={() => mirror.canRetry ? void mirror.retry() : mirror.dismissError()} className="mt-3 self-start py-1"><AppText variant="button" className="text-text-high">{mirror.canRetry ? "Retry response" : "Dismiss"}</AppText></Pressable>
+                            </View>
+                        ) : null}
+                        {mirror.voiceError ? (
+                            <View className="mb-8 rounded-3xl border border-border bg-surface p-4">
+                                <AppText variant="button" className="text-text-high">Voice paused.</AppText>
+                                <AppText className="mt-1 text-text-low">{mirror.voiceError}</AppText>
+                                <Pressable onPress={mirror.dismissVoiceError} className="mt-3 self-start py-1"><AppText variant="button" className="text-text-high">Dismiss</AppText></Pressable>
                             </View>
                         ) : null}
                     </View>
@@ -262,21 +284,10 @@ export function MirrorConversationBottomBar({
     motionRef: React.RefObject<AksMotionHandle | null>;
     mirror: ReturnType<typeof useMirror>;
 }) {
-    const [inputVisible, setInputVisible] = useState(false);
+const [inputVisible, setInputVisible] = useState(false);
     const [message, setMessage] = useState("");
     const [menuOpen, setMenuOpen] = useState(false);
     const inputRef = useRef<TextInput>(null);
-
-    const audioRecorder = useAudioRecorder(
-        RecordingPresets.HIGH_QUALITY,
-    );
-
-    const recorderState = useAudioRecorderState(
-        audioRecorder,
-        250,
-    );
-    const recordingRef = useRef(false);
-    recordingRef.current = recorderState.isRecording;
 
     const high = useResolveClassNames("text-text-high");
     const low = useResolveClassNames("text-text-low");
@@ -284,25 +295,6 @@ export function MirrorConversationBottomBar({
     useEffect(() => {
         if (inputVisible) requestAnimationFrame(() => inputRef.current?.focus());
     }, [inputVisible]);
-
-    useEffect(() => {
-        return () => {
-            if (!recordingRef.current) {
-                return;
-            }
-
-            void audioRecorder.stop().catch(() => undefined).finally(() => {
-                void setAudioModeAsync({
-                    allowsRecording: false,
-                });
-                if (audioRecorder.uri) {
-                    try { new File(audioRecorder.uri).delete(); } catch {}
-                }
-            });
-        };
-    }, [
-        audioRecorder,
-    ]);
 
     const handleMessageChange = useCallback(
         (value: string) => {
@@ -334,67 +326,40 @@ export function MirrorConversationBottomBar({
         }
     }, [message, mirror, motionRef]);
 
-    const startRecording = useCallback(async () => {
-        try {
-            const permission =
-                await AudioModule.requestRecordingPermissionsAsync();
+const startVoice = useCallback(() => {
+        motionRef.current?.conversation("speechStart");
+        void mirror.startVoiceConversation();
+    }, [mirror, motionRef]);
 
-            if (!permission.granted) {
-                Alert.alert(
-                    "Microphone unavailable",
-                    "Microphone access is needed to share a voice reflection.",
-                );
+    const stopVoice = useCallback(() => {
+        void mirror.stopVoiceConversation();
+        motionRef.current?.conversation("inputEnd");
+    }, [mirror, motionRef]);
 
-                return;
-            }
-
-            await setAudioModeAsync({
-                allowsRecording: true,
-                allowsBackgroundRecording: false,
-                playsInSilentMode: true,
-            });
-
-            await audioRecorder.prepareToRecordAsync();
-
-            audioRecorder.record();
-
-            motionRef.current?.conversation(
-                "speechStart",
-            );
-        } catch {
-            Alert.alert(
-                "Couldn’t start listening",
-                "Please try again, or share what’s on your mind in text.",
-            );
+    useEffect(() => {
+        switch (mirror.voiceState) {
+            case "userSpeaking":
+                motionRef.current?.conversation("speechStart");
+                break;
+            case "thinking":
+                motionRef.current?.conversation("typing");
+                break;
+            case "assistantSpeaking":
+                motionRef.current?.conversation("responseStart");
+                break;
+            case "error":
+                motionRef.current?.conversation("cancel");
+                break;
+            case "listening":
+            case "connected":
+            case "connecting":
+            case "reconnecting":
+            case "idle":
+            case "ended":
+                motionRef.current?.conversation("inputEnd");
+                break;
         }
-    }, [audioRecorder, motionRef]);
-
-    const stopRecording = useCallback(async () => {
-        let recordedUri: string | null = null;
-        try {
-            await audioRecorder.stop();
-            recordedUri = audioRecorder.uri;
-
-            await setAudioModeAsync({
-                allowsRecording: false,
-            });
-
-            motionRef.current?.conversation(
-                "inputEnd",
-            );
-
-            if (recordedUri) await mirror.sendVoice(recordedUri);
-        } catch {
-            motionRef.current?.conversation(
-                "cancel",
-            );
-            Alert.alert("Voice processing unavailable", "Your recording was not uploaded or added to your data.");
-        } finally {
-            if (recordedUri) {
-                try { new File(recordedUri).delete(); } catch {}
-            }
-        }
-    }, [audioRecorder, mirror, motionRef]);
+    }, [mirror.voiceState, motionRef]);
 
     const toggleInput = useCallback(() => {
         setInputVisible((visible) => !visible);
@@ -416,7 +381,6 @@ export function MirrorConversationBottomBar({
         setInputVisible(false);
     }, []);
 
-    const isRecording = recorderState.isRecording;
     const hasMessage = Boolean(message.trim());
 
     return (
@@ -445,7 +409,7 @@ export function MirrorConversationBottomBar({
                             className="max-h-28 min-h-11 flex-1 py-2 font-satoshi text-[15px] leading-5 text-text-high"
                         />
 
-                        {hasMessage ? (
+{hasMessage ? (
                             <IconButton
                                 accessibilityLabel="Send message"
                                 onPress={() => void handleSend()}
@@ -460,38 +424,7 @@ export function MirrorConversationBottomBar({
                                     color="#fff"
                                 />
                             </IconButton>
-                        ) : (
-                            <IconButton
-                                accessibilityLabel={
-                                    isRecording
-                                        ? "Stop listening"
-                                        : "Start listening"
-                                }
-                                onPress={
-                                    isRecording
-                                        ? stopRecording
-                                        : startRecording
-                                }
-                                className={cn(
-                                    "ml-2 bg-background",
-                                    isRecording &&
-                                    "bg-primary/15",
-                                )}
-                            >
-                                <HugeiconsIcon
-                                    icon={
-                                        isRecording
-                                            ? Cancel01Icon
-                                            : Mic01Icon
-                                    }
-                                    size={20}
-                                    color={
-                                        high.color
-                                    }
-                                    strokeWidth={1.8}
-                                />
-                            </IconButton>
-                        )}
+                        ) : null}
                     </View>
                 </Animated.View>
             )}
@@ -540,7 +473,7 @@ export function MirrorConversationBottomBar({
                     />
                 </Pressable>
 
-                <Pressable
+<Pressable
                     onPress={cancelInput}
                     accessibilityRole="button"
                     accessibilityLabel="Close composer"
@@ -550,6 +483,30 @@ export function MirrorConversationBottomBar({
                         icon={Cancel01Icon}
                         size={28}
                         color={high.color}
+                    />
+                </Pressable>
+
+                <Pressable
+                    onPress={mirror.voiceActive
+                        ? stopVoice
+                        : startVoice}
+                    accessibilityRole="button"
+                    accessibilityLabel={mirror.voiceActive
+                        ? "Stop voice conversation"
+                        : "Start voice conversation"}
+                    className={cn(
+                        "size-11 items-center justify-center rounded-full",
+                        mirror.voiceActive &&
+                        "bg-primary/15",
+                    )}
+                >
+                    <HugeiconsIcon
+                        icon={mirror.voiceActive
+                            ? StopIcon
+                            : Mic01Icon}
+                        size={20}
+                        color={high.color}
+                        strokeWidth={1.8}
                     />
                 </Pressable>
 

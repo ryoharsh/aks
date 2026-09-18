@@ -4,6 +4,7 @@ import { conversationsService } from "./conversations.service";
 import type { Json } from "@/types/database";
 import type { PendingMirrorTurn, MirrorTurn } from "@/types/mirror";
 import { dataEvents } from "./dataEvents";
+import { mirrorRealtimeService, type MirrorVoiceSession, type MirrorVoiceSessionOptions } from "./mirror-realtime.service";
 
 async function processSavedMessage(pending: PendingMirrorTurn): Promise<MirrorTurn> {
     try {
@@ -58,7 +59,7 @@ export const mirrorService = {
     },
     retryMessage: processSavedMessage,
     sendCheckIn: checkInsService.createCheckIn,
-    async sendVoice(_audioUri: string): Promise<never> {
-        throw new Error("VOICE_UNAVAILABLE");
+    sendVoice(options: MirrorVoiceSessionOptions): MirrorVoiceSession {
+        return mirrorRealtimeService.createSession(options);
     },
 };

@@ -6,6 +6,7 @@ import type { Message } from "@/types/data";
 import type { Json } from "@/types/database";
 import type { PendingMirrorTurn } from "@/types/mirror";
 import { mirrorOutboxService, type MirrorOutboxItem } from "@/services/mirrorOutbox.service";
+import { MirrorRealtimeError, realTimeErrorMessage, type RealtimeEvent, type VoiceState } from "@/services/realtime/types";
 import { useAuth } from "./useAuth";
 
 export function useMirror(initialConversationId?: string) {
@@ -25,9 +26,141 @@ export function useMirror(initialConversationId?: string) {
     const pendingSave = useRef<MirrorOutboxItem | null>(null);
     const pendingOutbox = useRef<MirrorOutboxItem | null>(null);
     const [hasPendingOutbox, setHasPendingOutbox] = useState(false);
+    const voiceSession = useRef<ReturnType<typeof mirrorService.sendVoice> | null>(null);
+    const [voiceActive, setVoiceActive] = useState(false);
+    const [voiceState, setVoiceState] = useState<VoiceState>("idle");
+    const [streamingUserTranscript, setStreamingUserTranscript] = useState("");
+    const [streamingAssistantText, setStreamingAssistantText] = useState("");
+    const [voiceError, setVoiceError] = useState<string | null>(null);
 
     const createRequestId = () => globalThis.crypto?.randomUUID?.()
         ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    const applyVoiceEvent = (event: RealtimeEvent) => {
+        switch (event.type) {
+            case "sessionConnecting":
+                setVoiceState("connecting");
+                break;
+            case "sessionReady":
+                setVoiceState("connected");
+                break;
+            case "listening":
+                setVoiceState("listening");
+                break;
+            case "userSpeechStarted":
+                setVoiceState("userSpeaking");
+                setStreamingAssistantText("");
+                break;
+            case "userTranscriptDelta":
+                setStreamingUserTranscript(event.transcript);
+                break;
+            case "userTranscriptFinal":
+                setStreamingUserTranscript(event.transcript);
+                break;
+            case "thinking":
+                setVoiceState("thinking");
+                break;
+            case "assistantResponseStarted":
+                setVoiceState("assistantSpeaking");
+                break;
+            case "assistantAudioStarted":
+                setVoiceState("assistantSpeaking");
+                break;
+            case "assistantAudioFinished":
+                setVoiceState((current) => current === "assistantSpeaking" ? "listening" : current);
+                break;
+            case "assistantTextDelta":
+                setVoiceState("assistantSpeaking");
+                setStreamingAssistantText(event.text);
+                break;
+            case "assistantTextFinal":
+                setStreamingAssistantText(event.text);
+                break;
+            case "assistantInterrupted":
+                setVoiceState("listening");
+                break;
+            case "reconnecting":
+                setVoiceState("reconnecting");
+                break;
+            case "reconnected":
+                setVoiceState("listening");
+                break;
+            case "error":
+                setVoiceState("error");
+                setVoiceError(event.message);
+                break;
+            case "turnCompleted":
+                setStreamingUserTranscript("");
+                setStreamingAssistantText("");
+                setVoiceState("listening");
+                break;
+            case "sessionEnded":
+                setVoiceActive(false);
+                setVoiceState("ended");
+                setStreamingUserTranscript("");
+                setStreamingAssistantText("");
+                break;
+        }
+    };
+
+    const clearVoiceSession = () => {
+        const session = voiceSession.current;
+        voiceSession.current = null;
+        session?.dispose();
+    };
+
+    const startVoiceConversation = async () => {
+        if (voiceSession.current?.active) return;
+        if (processingRef.current) return;
+        if (!user) {
+            setVoiceError("Voice conversations are available after you sign in.");
+            return;
+        }
+        setVoiceError(null);
+        setVoiceState("connecting");
+        const session = mirrorService.sendVoice({
+            conversationId,
+            onEvent: applyVoiceEvent,
+            onConversationIdChange: (id) => setConversationId(id),
+        });
+        voiceSession.current = session;
+        setVoiceActive(true);
+        try {
+            await session.start();
+        } catch (error) {
+            voiceSession.current = null;
+            setVoiceActive(false);
+            setVoiceState("ended");
+            setStreamingUserTranscript("");
+            setStreamingAssistantText("");
+            setVoiceError(error instanceof MirrorRealtimeError ? realTimeErrorMessage(error.code) : "We couldn’t start a voice conversation.");
+        }
+    };
+
+    const stopVoiceConversation = async () => {
+        const session = voiceSession.current;
+        if (!session) return;
+        const wasActive = session.active;
+        try {
+            await session.stop();
+        } catch {
+            // The provider may already be gone.
+        }
+        if (wasActive) {
+            try { session.dispose(); } catch { /* already disposed */ }
+        }
+        voiceSession.current = null;
+        setVoiceActive(false);
+        setVoiceState("ended");
+        setStreamingUserTranscript("");
+        setStreamingAssistantText("");
+    };
+
+    const interruptAssistant = () => {
+        voiceSession.current?.interrupt();
+    };
+
+    const dismissVoiceError = () => setVoiceError(null);
 
     useEffect(() => {
         setConversationId(initialConversationId ?? null);
@@ -72,6 +205,17 @@ export function useMirror(initialConversationId?: string) {
 
     useEffect(() => () => { request.current += 1; }, []);
 
+    useEffect(() => () => { clearVoiceSession(); }, []);
+
+    useEffect(() => {
+        if (user) return;
+        if (voiceSession.current?.active) void stopVoiceConversation();
+        clearVoiceSession();
+        setVoiceActive(false);
+        setVoiceState("idle");
+        setVoiceError(null);
+    }, [user, stopVoiceConversation, clearVoiceSession]);
+
     useEffect(() => {
         if (!user) return;
         let active = true;
@@ -114,6 +258,7 @@ export function useMirror(initialConversationId?: string) {
 
     const sendMessage = async (content: string, metadata: Json = {}) => {
         if (processingRef.current) throw new Error("A message is already processing.");
+        if (voiceSession.current?.active) await stopVoiceConversation();
         if (pendingSave.current && pendingSave.current.content !== content.trim()) {
             setError("Retry or resolve your previous message before sending another one.");
             throw new Error("PENDING_MESSAGE_EXISTS");
@@ -183,8 +328,6 @@ export function useMirror(initialConversationId?: string) {
         }
     };
 
-    const sendVoice = (audioUri: string) => mirrorService.sendVoice(audioUri);
-
     const loadEarlier = async () => {
         if (!conversationId || loadingEarlierRef.current || !hasEarlier) return;
         const currentRequest = request.current;
@@ -212,6 +355,7 @@ export function useMirror(initialConversationId?: string) {
     const startNewConversation = () => {
         if (processingRef.current) return;
         if (pending.current || pendingOutbox.current || pendingSave.current) return;
+        if (voiceSession.current?.active) void stopVoiceConversation();
         request.current += 1;
         setConversationId(null);
         setMessages([]);
@@ -226,5 +370,5 @@ export function useMirror(initialConversationId?: string) {
 
     const dismissError = () => setError(null);
 
-    return { conversationId, messages, loading, loadingEarlier, hasEarlier, processing, error, canRetry: Boolean(pending.current) || hasPendingOutbox || Boolean(pendingSave.current), sendMessage, retry, sendCheckIn, sendVoice, loadEarlier, startNewConversation, dismissError };
+    return { conversationId, messages, loading, loadingEarlier, hasEarlier, processing, error, canRetry: Boolean(pending.current) || hasPendingOutbox || Boolean(pendingSave.current), sendMessage, retry, sendCheckIn, loadEarlier, startNewConversation, dismissError, voiceActive, voiceState, streamingUserTranscript, streamingAssistantText, voiceError, startVoiceConversation, stopVoiceConversation, interruptAssistant, dismissVoiceError };
 }

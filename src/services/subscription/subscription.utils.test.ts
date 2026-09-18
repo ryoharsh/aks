@@ -208,8 +208,21 @@ describe("deriveSubscriptionState", () => {
             offeringsWith([makePackage("a", "MONTHLY", "$9.99", "P1M")]),
         );
         expect(state.status).toBe("free");
+        expect(state.isActive).toBe(false);
         expect(state.plan).toBeNull();
         expect(state.options).toHaveLength(1);
+    });
+
+    it("flags cancelled (active, not renewing) as active", () => {
+        const state = deriveSubscriptionState(
+            customerInfoWith(
+                { isActive: true, willRenew: false },
+                { isActive: true, willRenew: false },
+            ),
+            offeringsWith(null, {}),
+        );
+        expect(state.status).toBe("cancelled");
+        expect(state.isActive).toBe(true);
     });
 });
 
@@ -245,6 +258,18 @@ describe("normalizeSubscriptionError", () => {
         expect(normalizeSubscriptionError({ code: "32" }).type).toBe(
             "OFFERING_UNAVAILABLE",
         );
+    });
+
+    it("maps pending purchases", () => {
+        const result = normalizeSubscriptionError({ code: "20" });
+        expect(result.type).toBe("PAYMENT_PENDING");
+        expect(result.message).toMatch(/waiting for confirmation/i);
+    });
+
+    it("maps already-purchased products", () => {
+        const result = normalizeSubscriptionError({ code: "6" });
+        expect(result.type).toBe("ALREADY_SUBSCRIBED");
+        expect(result.message).toMatch(/already subscribed/i);
     });
 
     it("maps unknown store codes to STORE_ERROR", () => {

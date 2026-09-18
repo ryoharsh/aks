@@ -3,11 +3,18 @@ import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import {
+    isSupabaseConfigured,
+    supabase,
+    supabaseUrl,
+} from "@/lib/supabase";
 import { AuthError, type AuthProviderName } from "./auth.types";
 import { normalizeAuthError, normalizeEmail, normalizeName } from "./auth.utils";
 
 export const authRedirectUrl = Linking.createURL("auth/callback");
+export const supabaseCallbackUrl =
+    process.env.EXPO_PUBLIC_SUPABASE_AUTH_CALLBACK_URL ??
+    `${supabaseUrl}/functions/v1/auth-callback`;
 
 function assertConfigured() {
     if (!isSupabaseConfigured) {
@@ -39,7 +46,7 @@ async function sendMagicLink(
     const { error } = await supabase.auth.signInWithOtp({
         email: normalizedEmail,
         options: {
-            emailRedirectTo: authRedirectUrl,
+            emailRedirectTo: supabaseCallbackUrl,
             shouldCreateUser: options.shouldCreateUser,
             data: options.fullName
                 ? { full_name: options.fullName.trim() }
@@ -108,7 +115,7 @@ export const authService = {
         const { data, error } = await supabase.auth.signInWithOAuth({
             provider,
             options: {
-                redirectTo: authRedirectUrl,
+                redirectTo: supabaseCallbackUrl,
                 skipBrowserRedirect: true,
             },
         });

@@ -211,16 +211,13 @@ export default function MirrorScreen({
         }
     };
 
-    const submitVoice = () => {
+const submitVoice = () => {
         if (!audioRecorder.uri) return;
 
         setVoiceReady(false);
         const uri = audioRecorder.uri;
-        void mirror.sendVoice(uri)
-            .catch(() => Alert.alert("Voice processing unavailable", "Your recording was not uploaded or added to your data."))
-            .finally(() => {
-                try { new File(uri).delete(); } catch {}
-            });
+        try { new File(uri).delete(); } catch {}
+        Alert.alert("Try voice in a conversation", "Open a conversation to talk with Aks by voice. Its replies are private and stay in your thread.");
     };
 
     const discardVoice = () => {

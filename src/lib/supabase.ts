@@ -60,7 +60,7 @@ const secureStoreAdapter = {
     },
 };
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co";
+export const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co";
 const supabaseKey =
     process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??

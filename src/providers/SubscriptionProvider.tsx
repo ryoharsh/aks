@@ -19,6 +19,7 @@ import {
 
 const EMPTY_STATE: SubscriptionState = {
     status: "unknown",
+    isActive: false,
     options: [],
     offeringIdentifier: null,
     plan: null,

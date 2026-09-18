@@ -23,6 +23,7 @@ export type SubscriptionPlan = {
 
 export type SubscriptionState = {
     status: SubscriptionStatus;
+    isActive: boolean;
     options: SubscriptionOption[];
     offeringIdentifier: string | null;
     plan: SubscriptionPlan | null;
@@ -33,6 +34,8 @@ export type SubscriptionErrorType =
     | "NETWORK_ERROR"
     | "OFFERING_UNAVAILABLE"
     | "PURCHASE_CANCELLED"
+    | "PAYMENT_PENDING"
+    | "ALREADY_SUBSCRIBED"
     | "STORE_ERROR"
     | "MANAGE_UNAVAILABLE"
     | "UNKNOWN";

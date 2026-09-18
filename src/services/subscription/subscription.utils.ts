@@ -14,6 +14,8 @@ import {
 } from "./subscription.types";
 
 const PURCHASES_ERROR_CANCELLED = "1";
+const PURCHASES_ERROR_ALREADY_PURCHASED = "6";
+const PURCHASES_ERROR_PAYMENT_PENDING = "20";
 const NETWORK_ERROR_CODES = new Set(["10", "35"]);
 const OFFERING_ERROR_CODES = new Set(["5", "32"]);
 
@@ -143,9 +145,11 @@ export function deriveSubscriptionState(
     customerInfo: CustomerInfo | null,
     offerings: PurchasesOfferings | null,
 ): SubscriptionState {
+    const status = deriveSubscriptionStatus(customerInfo);
     const { options, offeringIdentifier } = normalizeOfferings(offerings);
     return {
-        status: deriveSubscriptionStatus(customerInfo),
+        status,
+        isActive: status === "active" || status === "cancelled",
         options,
         offeringIdentifier,
         plan: deriveSubscriptionPlan(customerInfo),
@@ -186,6 +190,18 @@ export function normalizeSubscriptionError(error: unknown): SubscriptionError {
         return new SubscriptionError(
             "OFFERING_UNAVAILABLE",
             "Plans aren't available right now. Please try again in a moment.",
+        );
+    }
+    if (code === PURCHASES_ERROR_PAYMENT_PENDING) {
+        return new SubscriptionError(
+            "PAYMENT_PENDING",
+            "Your purchase is waiting for confirmation from the store. It will appear here once it's complete.",
+        );
+    }
+    if (code === PURCHASES_ERROR_ALREADY_PURCHASED) {
+        return new SubscriptionError(
+            "ALREADY_SUBSCRIBED",
+            "You're already subscribed to this plan.",
         );
     }
     if (code !== null) {
