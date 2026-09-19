@@ -16,12 +16,40 @@ export type CreateCheckIn = {
     metadata?: Json;
 };
 
+export function createCheckInRequestId() {
+    return globalThis.crypto?.randomUUID?.() ?? `checkin-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export const checkInsRepository = {
-    async create(values: CreateCheckIn) {
-        await requireAuthenticatedUser();
-        const { data, error } = await supabase.from("check_ins").insert(values).select().single();
+    async create(values: CreateCheckIn, requestId?: string) {
+        const user = await requireAuthenticatedUser();
+        const { data, error } = await supabase.rpc("create_check_in", {
+            check_in_user_id: user.id,
+            check_in_values: {
+                mood: values.mood ?? null,
+                energy: values.energy ?? null,
+                focus: values.focus ?? null,
+                stress: values.stress ?? null,
+                notes: values.notes ?? null,
+                metadata: values.metadata ?? {},
+            },
+            request_id: requestId ?? createCheckInRequestId(),
+        });
         if (error) throwDataError(error, "We couldn't save that check-in.");
-        return mapCheckIn(data);
+        const saved = data as { id: string; created_at: string } | null;
+        if (!saved?.id) throwDataError(new Error("Missing check-in result"), "We couldn't save that check-in.");
+        return mapCheckIn({
+            id: saved.id,
+            user_id: user.id,
+            mood: values.mood ?? null,
+            energy: values.energy ?? null,
+            focus: values.focus ?? null,
+            stress: values.stress ?? null,
+            notes: values.notes ?? null,
+            client_request_id: requestId ?? null,
+            metadata: values.metadata ?? {},
+            created_at: saved.created_at,
+        });
     },
     async get(id: string) {
         await requireAuthenticatedUser();

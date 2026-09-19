@@ -42,6 +42,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         try {
             const loaded = await preferencesService.getOrCreate(user.id);
             if (requestId.current === currentRequest) setPreferences(loaded);
+            void preferencesService.syncNotificationTimezone();
         } catch {
             if (requestId.current === currentRequest) setError("We couldn't load your preferences.");
         } finally {

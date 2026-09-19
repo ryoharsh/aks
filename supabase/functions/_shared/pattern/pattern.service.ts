@@ -23,6 +23,7 @@ function conceptLabel(key: string) {
         case "routine_change": return value.changed === false ? "a stable routine" : "routine changes";
         case "avoidance": return value.present === false ? "approaching tasks without reported avoidance" : "putting off tasks or situations";
         case "motivation_change": return `${value.direction ?? "changing"} motivation`;
+        case "mood_observation": return typeof value.mood === "string" ? `a ${value.mood} check-in` : "your check-in";
         default: return type.replaceAll("_", " ");
     }
 }
@@ -51,6 +52,7 @@ const relatedSignalTypes: Record<string, string[]> = {
     stress_level: ["focus_difficulty", "sleep_quality", "avoidance", "mood_state"],
     routine_change: ["focus_difficulty", "energy_change", "motivation_change"],
     avoidance: ["difficulty_starting", "stress_level", "motivation_change"],
+    mood_observation: ["sleep_quality", "energy_change", "stress_level", "focus_difficulty"],
     motivation_change: ["difficulty_starting", "energy_change", "mood_state", "avoidance"],
 };
 
@@ -89,8 +91,9 @@ function validateRelationship(proposal: PatternProposal, selected: PatternSignal
 export async function analyzePatterns(input: {
     repository: PatternRepository;
     ai: { generate(request: AIRequest): Promise<AIResult> };
-    conversationId: string;
-    userMessageId: string;
+    conversationId: string | null;
+    userMessageId: string | null;
+    reflectionId?: string | null;
     observedAt: string;
     currentSignals: Array<{ signalType: string }>;
 }): Promise<PatternAction[]> {
@@ -102,7 +105,7 @@ export async function analyzePatterns(input: {
     if (sources < 3 || !signalTypes.some((type) => (currentSignalCounts[type] ?? 0) >= 3 && (currentSignalCounts[type] ?? 0) % 3 === 0)) return [];
 
     const [existingPatterns, relevantMemories] = await Promise.all([input.repository.getExistingPatterns(), input.repository.getRelevantMemories()]);
-    const claim = await input.repository.claimRun({ conversationId: input.conversationId, userMessageId: input.userMessageId });
+    const claim = await input.repository.claimRun({ conversationId: input.conversationId, userMessageId: input.userMessageId, reflectionId: input.reflectionId ?? null });
     if (claim.status === "succeeded") return [];
 
     let result: AIResult;

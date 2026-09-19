@@ -8,6 +8,7 @@ import { AuthProvider } from '@/providers/AuthProvider';
 import { AppFlowProvider } from '@/providers/AppFlowProvider';
 import { PreferencesProvider } from '@/providers/PreferencesProvider';
 import { SubscriptionProvider } from '@/providers/SubscriptionProvider';
+import { useNotificationLifecycle } from '@/hooks/useNotificationLifecycle';
 import ThemePreferenceSync from '@/components/ThemePreferenceSync';
 import './globals.css';
 
@@ -35,17 +36,25 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <SubscriptionProvider>
-          <PreferencesProvider>
-            <ThemePreferenceSync />
-            <AppFlowProvider>
-              <NavigationContainer>
-                <AppNavigator />
-              </NavigationContainer>
-            </AppFlowProvider>
-          </PreferencesProvider>
-        </SubscriptionProvider>
+        <AppServices />
       </AuthProvider>
     </ThemeProvider>
+  );
+}
+
+function AppServices() {
+  useNotificationLifecycle();
+
+  return (
+    <SubscriptionProvider>
+      <PreferencesProvider>
+        <ThemePreferenceSync />
+        <AppFlowProvider>
+          <NavigationContainer>
+            <AppNavigator />
+          </NavigationContainer>
+        </AppFlowProvider>
+      </PreferencesProvider>
+    </SubscriptionProvider>
   );
 }

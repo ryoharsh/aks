@@ -55,6 +55,7 @@ export type YourDataStackParamList = {
   LearningDetail: { learningId: string };
   Insights: undefined;
   InsightDetail: { insightId: string };
+  ConnectedSources: undefined;
 };
 
 export type HelpFeedbackStackParamList = {

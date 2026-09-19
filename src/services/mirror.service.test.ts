@@ -41,6 +41,14 @@ vi.mock("@/repositories/mirror.repository", () => ({
 vi.mock("@/services/checkIns.service", () => ({
     checkInsService: { createCheckIn: mocks.createCheckIn },
 }));
+vi.mock("@/repositories/checkIns.repository", () => ({
+    checkInsRepository: { create: vi.fn() },
+    createCheckInRequestId: () => "check-in-request-id",
+}));
+vi.mock("./checkIns.repository", () => ({
+    checkInsRepository: { create: vi.fn() },
+    createCheckInRequestId: () => "check-in-request-id",
+}));
 vi.mock("@/services/mirror-realtime.service", () => ({
     mirrorRealtimeService: { createSession: mocks.createRealtimeSession },
 }));
@@ -79,8 +87,6 @@ describe("mirror service", () => {
         expect(result.userMessage).toEqual(userMessage);
         expect(mocks.processObservations).not.toHaveBeenCalled();
         expect(result.assistantMessage).toBeNull();
-        expect(result.assistantMessage).toBeNull();
-    });
         expect(result.processingError?.code).toBe("AI_UNAVAILABLE");
         expect(result.processingError?.retryable).toBe(true);
     });
@@ -94,7 +100,8 @@ describe("mirror service", () => {
 
     it("preserves the check-in and voice boundaries", async () => {
         mocks.createCheckIn.mockResolvedValue({ id: "check-in" });
-        await expect(mirrorService.sendCheckIn({ mood: "okay" })).resolves.toEqual({ id: "check-in" });
+        await expect(mirrorService.sendCheckIn({ mood: "okay" }, "request-check-in")).resolves.toEqual({ id: "check-in" });
+        expect(mocks.createCheckIn).toHaveBeenCalledWith({ mood: "okay" }, "request-check-in");
         const stubSession = { start: vi.fn(), stop: vi.fn(), interrupt: vi.fn(), dispose: vi.fn() };
         mocks.createRealtimeSession.mockReturnValue(stubSession);
         const session = mirrorService.sendVoice({ conversationId: "conversation-1" });

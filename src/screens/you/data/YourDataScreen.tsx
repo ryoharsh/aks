@@ -77,8 +77,16 @@ export default function YourDataScreen({ navigation }: Props) {
                 <Animated.View entering={FadeInUp.duration(450).delay(290)} className="mt-9">
                     <SectionLabel>DATA SOURCES</SectionLabel>
                     <View className="rounded-[28px] border border-border bg-surface">
-                        <SourceRow icon={UserCircleIcon} title="Aks" description="Conversations, reflections, and check-ins you choose to share." iconColor={iconColor} />
-                        <SourceRow icon={Link01Icon} title="Connected sources" description="No connected sources. Available when supported." iconColor={iconColor} last />
+                        <Pressable onPress={() => navigation.navigate("ConnectedSources")} accessibilityRole="button" className={`flex-row items-center px-5 py-5`}>
+                            <View className="mr-4 size-11 items-center justify-center rounded-2xl bg-background">
+                                <HugeiconsIcon icon={Link01Icon} size={21} color={iconColor} />
+                            </View>
+                            <View className="flex-1 pr-3">
+                                <AppText variant="button" className={"text-text-high"}>Connected sources</AppText>
+                                <AppText variant="caption" className="mt-1 text-text-low">No connected sources. Available when supported.</AppText>
+                            </View>
+                            <HugeiconsIcon icon={ArrowRight01Icon} size={19} color={iconColor} />
+                        </Pressable>
                     </View>
                 </Animated.View>
 
@@ -116,8 +124,3 @@ function DataRows({ items, onNavigate, iconColor }: { items: DataCount[]; onNavi
 function SectionLabel({ children }: { children: string }) {
     return <AppText variant="caption" className="mb-3 tracking-[1.5px] text-text-low">{children}</AppText>;
 }
-
-function SourceRow({ icon, title, description, iconColor }: { icon: IconSvgElement; title: string; description: string; iconColor: React.ComponentProps<typeof HugeiconsIcon>["color"] }) {
-    return <View className="flex-row items-center px-5 py-5"><View className="mr-4 size-11 items-center justify-center rounded-2xl bg-background"><HugeiconsIcon icon={icon} size={21} color={iconColor} /></View><View className="flex-1"><AppText variant="button" className="text-text-high">{title}</AppText><AppText variant="caption" className="mt-1 text-text-low">{description}</AppText></View></View>;
-}
-

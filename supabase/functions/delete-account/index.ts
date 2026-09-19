@@ -62,6 +62,14 @@ Deno.serve(async (request) => {
         }
     }
 
+    // Cancel pending notification deliveries so nothing sends after deletion.
+    // Rows themselves cascade with the auth user; OneSignal identity cleanup
+    // happens client-side on logout.
+    await admin.from("notification_deliveries")
+        .update({ status: "cancelled", failure_reason: "account_deleted", updated_at: new Date().toISOString() })
+        .eq("user_id", user.id)
+        .in("status", ["candidate", "scheduled"]);
+
     const { error } = await admin.auth.admin.deleteUser(user.id);
     if (error) {
         return new Response(JSON.stringify({ error: "Unable to delete account" }), { status: 500, headers });

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { conversationsService } from "@/services/conversations.service";
-import { mirrorService } from "@/services/mirror.service";
+import { createCheckInRequestId, mirrorService } from "@/services/mirror.service";
 import type { Message } from "@/types/data";
 import type { Json } from "@/types/database";
 import type { PendingMirrorTurn } from "@/types/mirror";
@@ -313,12 +313,20 @@ export function useMirror(initialConversationId?: string) {
         }
     };
 
+    const pendingCheckInRequestIds = useRef<Record<string, string>>({});
+
     const sendCheckIn = async (mood: string) => {
         if (processingRef.current) throw new Error("A check-in is already processing.");
         processingRef.current = true;
         setProcessing(true);
         try {
-            return await mirrorService.sendCheckIn({ mood, metadata: { source: "mirror_quick_check_in" } });
+            // A retried check-in reuses the same request id so the database can
+            // replay the original instead of creating a duplicate.
+            const requestId = pendingCheckInRequestIds.current[mood] ?? createCheckInRequestId();
+            pendingCheckInRequestIds.current[mood] = requestId;
+            const result = await mirrorService.sendCheckIn({ mood, metadata: { source: "mirror_quick_check_in" } }, requestId);
+            delete pendingCheckInRequestIds.current[mood];
+            return result;
         } catch {
             setError("We couldn't save your check-in. Please try again.");
             throw new Error("CHECK_IN_SAVE_FAILED");

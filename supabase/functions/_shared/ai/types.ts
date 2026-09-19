@@ -1,4 +1,16 @@
-export type AITask = "conversation_response" | "signal_extraction" | "memory_evaluation" | "pattern_analysis" | "experiment_analysis" | "learning_synthesis" | "insight_generation";
+export type AITask = "conversation_response" | "signal_extraction" | "memory_evaluation" | "pattern_analysis" | "experiment_analysis" | "learning_synthesis" | "insight_generation" | "reflection_transcription";
+
+export type TranscriptionRequest = {
+    audio: Uint8Array;
+    mimeType: string;
+};
+
+export type TranscriptionResult = {
+    text: string;
+    provider: string;
+    model: string;
+    latencyMs: number;
+};
 
 export type AIRequest = {
     task: AITask;
@@ -20,6 +32,7 @@ export type AIResult = {
 
 export interface AIProvider {
     generate(input: AIRequest): Promise<AIResult>;
+    transcribe?(input: TranscriptionRequest): Promise<TranscriptionResult>;
 }
 
 export class AIProviderError extends Error {

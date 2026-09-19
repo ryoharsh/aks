@@ -38,6 +38,9 @@ export type Database = {
                     appearance: "system" | "light" | "dark";
                     what_exploring: string[];
                     what_to_notice: string[];
+                    notifications_enabled: boolean;
+                    notification_categories: Json;
+                    quiet_hours_enabled: boolean;
                     updated_at: string;
                 };
                 Insert: {
@@ -45,12 +48,18 @@ export type Database = {
                     appearance?: "system" | "light" | "dark";
                     what_exploring?: string[];
                     what_to_notice?: string[];
+                    notifications_enabled?: boolean;
+                    notification_categories?: Json;
+                    quiet_hours_enabled?: boolean;
                     updated_at?: string;
                 };
                 Update: {
                     appearance?: "system" | "light" | "dark";
                     what_exploring?: string[];
                     what_to_notice?: string[];
+                    notifications_enabled?: boolean;
+                    notification_categories?: Json;
+                    quiet_hours_enabled?: boolean;
                     updated_at?: string;
                 };
                 Relationships: [];
@@ -167,6 +176,7 @@ export type Database = {
                     focus: number | null;
                     stress: number | null;
                     notes: string | null;
+                    client_request_id: string | null;
                     metadata: Json;
                     created_at: string;
                 };
@@ -393,6 +403,97 @@ export type Database = {
                 Update: never;
                 Relationships: [];
             };
+            user_data_sources: {
+                Row: {
+                    id: string;
+                    user_id: string;
+                    source_type: string;
+                    status: "not_connected" | "connected" | "revoked" | "error";
+                    platform_support: string;
+                    permission_state: string;
+                    mode: string | null;
+                    timezone: string | null;
+                    last_synced_at: string | null;
+                    settings: Json;
+                    connected_at: string | null;
+                    disconnected_at: string | null;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    user_id: string;
+                    source_type: string;
+                    status?: "not_connected" | "connected" | "revoked" | "error";
+                    platform_support?: string;
+                    permission_state?: string;
+                    mode?: string | null;
+                    timezone?: string | null;
+                    last_synced_at?: string | null;
+                    settings?: Json;
+                    connected_at?: string | null;
+                    disconnected_at?: string | null;
+                };
+                Update: {
+                    status?: "not_connected" | "connected" | "revoked" | "error";
+                    platform_support?: string;
+                    permission_state?: string;
+                    mode?: string | null;
+                    timezone?: string | null;
+                    last_synced_at?: string | null;
+                    settings?: Json;
+                    connected_at?: string | null;
+                    disconnected_at?: string | null;
+                    updated_at?: string;
+                };
+                Relationships: [];
+            };
+            user_source_accounts: {
+                Row: {
+                    id: string;
+                    user_id: string;
+                    source_type: string;
+                    provider_account_label: string;
+                    status: "connected" | "error" | "revoked";
+                    token_ref: string;
+                    last_synced_at: string | null;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    user_id: string;
+                    source_type: string;
+                    provider_account_label?: string;
+                    status?: "connected" | "error" | "revoked";
+                    token_ref?: string;
+                    last_synced_at?: string | null;
+                    updated_at?: string;
+                };
+                Update: {
+                    provider_account_label?: string;
+                    status?: "connected" | "error" | "revoked";
+                    last_synced_at?: string | null;
+                    updated_at?: string;
+                };
+                Relationships: [];
+            };
+            observations: {
+                Row: {
+                    id: string;
+                    user_id: string;
+                    source_type: string;                    observation_type: string;
+                    source_event_id: string;
+                    observed_at: string;
+                    value: Json;
+                    confidence: number | null;
+                    metadata: Json;
+                    created_at: string;
+                };
+                Insert: never;
+                Update: never;
+                Relationships: [];
+            };
             timeline_events: {
                 Row: {
                     id: string;
@@ -415,6 +516,7 @@ export type Database = {
                     conversation_id: string | null;
                     user_message_id: string | null;
                     experiment_id: string | null;
+                    reflection_id: string | null;
                     attempt_token: string;
                     task: string;
                     status: "started" | "succeeded" | "failed";
@@ -469,6 +571,14 @@ export type Database = {
                     run_user_message_id: string;
                     run_task: string;
                 };
+                Returns: Json;
+            };
+            create_check_in: {
+                Args: { check_in_user_id: string; check_in_values: Json; request_id: string };
+                Returns: Json;
+            };
+            claim_reflection_ai_run: {
+                Args: { run_user_id: string; run_reflection_id: string; run_task: string };
                 Returns: Json;
             };
             archive_memory: {
@@ -573,10 +683,15 @@ export type Database = {
             archive_insight: { Args: { target_insight_id: string }; Returns: boolean };
             delete_insight: { Args: { target_insight_id: string }; Returns: boolean };
             set_experiment_insight_status: { Args: { experiment_user_id: string; target_experiment_id: string; new_status: string }; Returns: boolean };
+            touch_notification_timezone: { Args: { p_timezone: string }; Returns: string };
+            upsert_observation: { Args: { p_user_id: string; p_source_type: string; p_observation_type: string; p_source_event_id: string; p_observed_at: string; p_value: Json; p_confidence: number | null; p_metadata: Json }; Returns: Json };
+            get_context_bundle: { Args: { p_user_id: string; p_anchor?: string; p_window_hours?: number; p_limit?: number; p_source_filter?: Json }; Returns: Json };
+            record_sync_result: { Args: { p_user_id: string; p_source_type: string; p_status: string; p_cursor?: Json; p_error?: string }; Returns: undefined };
+            enqueue_provider_sync: { Args: { p_user_id: string; p_source_type: string; p_job_key: string; p_payload?: Json }; Returns: string };
         };
         Enums: {
             message_role: "user" | "assistant" | "system";
-            signal_source_type: "conversation" | "reflection" | "check_in" | "experiment";
+            signal_source_type: "conversation" | "reflection" | "check_in" | "experiment" | "observation";
         };
         CompositeTypes: Record<string, never>;
     };

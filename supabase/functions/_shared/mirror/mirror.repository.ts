@@ -50,6 +50,26 @@ export function createMirrorRepository(userClient: SupabaseClient, adminClient: 
             if (error) throw new Error("CONTEXT_UNAVAILABLE");
             return { whatExploring: data?.what_exploring ?? [], whatToNotice: data?.what_to_notice ?? [] };
         },
+        async getSupportedPatterns() {
+            const { data, error } = await userClient.from("patterns").select("title, description, status, evidence_count, last_observed_at").in("status", ["supported", "possible"]).order("last_observed_at", { ascending: false }).limit(4);
+            if (error) throw new Error("CONTEXT_UNAVAILABLE");
+            return data.map((pattern) => ({ title: pattern.title, description: pattern.description, status: pattern.status, evidenceCount: pattern.evidence_count, lastObservedAt: pattern.last_observed_at }));
+        },
+        async getActiveExperiments() {
+            const { data, error } = await userClient.from("experiments").select("title, hypothesis, status, start_date, end_date").eq("status", "active").order("updated_at", { ascending: false }).limit(3);
+            if (error) throw new Error("CONTEXT_UNAVAILABLE");
+            return data.map((experiment) => ({ title: experiment.title, hypothesis: experiment.hypothesis, status: experiment.status, startDate: experiment.start_date, endDate: experiment.end_date }));
+        },
+        async getRelevantLearnings() {
+            const { data, error } = await userClient.from("learnings").select("title, description, status, confidence").in("status", ["active", "revised"]).order("updated_at", { ascending: false }).limit(3);
+            if (error) throw new Error("CONTEXT_UNAVAILABLE");
+            return data.map((learning) => ({ title: learning.title, description: learning.description, status: learning.status, confidence: learning.confidence }));
+        },
+        async getContextBundle(anchor: string, windowHours: number, limit: number, sourceFilter?: string[]) {
+            const { data, error } = await userClient.rpc("get_context_bundle", { p_user_id: userId, p_anchor: anchor, p_window_hours: windowHours, p_limit: limit, ...(sourceFilter?.length ? { p_source_filter: sourceFilter } : {}) });
+            if (error) return { connectedSources: [] as string[], observations: [] as Array<{ sourceType: string; observationType: string; observedAt: string; value: Record<string, unknown> }> };
+            return data as { connectedSources: string[]; observations: Array<{ sourceType: string; observationType: string; observedAt: string; value: Record<string, unknown> }> };
+        },
         async getSignalsForMessage(messageId: string) {
             const { data, error } = await userClient.from("signals").select("id, signal_type, value, confidence, observed_at, source_message_id").eq("source_message_id", messageId);
             if (error) throw new Error("CONTEXT_UNAVAILABLE");

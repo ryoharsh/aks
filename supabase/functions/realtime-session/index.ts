@@ -43,7 +43,7 @@ Deno.serve(async (request) => {
             const { data: conversation, error: conversationError } = await userClient.from("conversations").select("id, title").eq("id", conversationId).single();
             if (conversationError || !conversation) return respond({ error: { code: "NOT_FOUND", message: "This conversation is unavailable." } }, 404);
 
-            const [recentMessages, recentSignals, activeMemories, preferences] = await Promise.all([
+            const [recentMessages, recentSignals, activeMemories, supportedPatterns, activeExperiments, relevantLearnings, preferences] = await Promise.all([
                 userClient.from("messages").select("role, content, created_at").eq("conversation_id", conversationId).order("created_at", { ascending: false }).limit(12).then((result) => {
                     if (result.error) throw new Error("CONTEXT_UNAVAILABLE");
                     return result.data.reverse().map((message) => ({ role: message.role, content: message.content, createdAt: message.created_at }));
@@ -56,12 +56,24 @@ Deno.serve(async (request) => {
                     if (result.error) throw new Error("CONTEXT_UNAVAILABLE");
                     return result.data.map((memory) => ({ content: memory.content, memoryType: memory.memory_type, lastObservedAt: memory.last_observed_at }));
                 }),
+                userClient.from("patterns").select("title, description, status, evidence_count, last_observed_at").in("status", ["supported", "possible"]).order("last_observed_at", { ascending: false }).limit(4).then((result) => {
+                    if (result.error) throw new Error("CONTEXT_UNAVAILABLE");
+                    return result.data.map((pattern) => ({ title: pattern.title, description: pattern.description, status: pattern.status, evidenceCount: pattern.evidence_count, lastObservedAt: pattern.last_observed_at }));
+                }),
+                userClient.from("experiments").select("title, hypothesis, status, start_date, end_date").eq("status", "active").order("updated_at", { ascending: false }).limit(3).then((result) => {
+                    if (result.error) throw new Error("CONTEXT_UNAVAILABLE");
+                    return result.data.map((experiment) => ({ title: experiment.title, hypothesis: experiment.hypothesis, status: experiment.status, startDate: experiment.start_date, endDate: experiment.end_date }));
+                }),
+                userClient.from("learnings").select("title, description, status, confidence").in("status", ["active", "revised"]).order("updated_at", { ascending: false }).limit(3).then((result) => {
+                    if (result.error) throw new Error("CONTEXT_UNAVAILABLE");
+                    return result.data.map((learning) => ({ title: learning.title, description: learning.description, status: learning.status, confidence: learning.confidence }));
+                }),
                 userClient.from("user_preferences").select("what_exploring, what_to_notice").maybeSingle().then((result) => {
                     if (result.error) throw new Error("CONTEXT_UNAVAILABLE");
                     return { whatExploring: result.data?.what_exploring ?? [], whatToNotice: result.data?.what_to_notice ?? [] };
                 }),
             ]);
-            const context = buildMirrorContext({ currentMessage: "", conversation: { title: conversation.title }, recentMessages, recentSignals, activeMemories, preferences });
+            const context = buildMirrorContext({ currentMessage: "", conversation: { title: conversation.title }, recentMessages, recentSignals, activeMemories, supportedPatterns, activeExperiments, relevantLearnings, preferences });
             instructions = `${conversationResponseTask.instructions}\n\nConversation context:\n${JSON.stringify(context)}`;
         }
 

@@ -47,8 +47,9 @@ function findDuplicate(memories: ExistingMemory[], canonicalKey: string, request
 export async function evaluateMemory(input: {
     repository: MemoryRepository;
     ai: { generate(request: AIRequest): Promise<AIResult> };
-    conversationId: string;
-    userMessageId: string;
+    conversationId: string | null;
+    userMessageId: string | null;
+    reflectionId?: string | null;
     observedAt: string;
     currentSignals: Array<{ signalType: string }>;
 }): Promise<MemoryAction> {
@@ -58,7 +59,7 @@ export async function evaluateMemory(input: {
     if (evidence.length < 2 || distinctSources.size < 2) return { action: "no_action" };
 
     const existingMemories = await input.repository.getExistingMemories();
-    const claim = await input.repository.claimRun({ conversationId: input.conversationId, userMessageId: input.userMessageId });
+    const claim = await input.repository.claimRun({ conversationId: input.conversationId, userMessageId: input.userMessageId, reflectionId: input.reflectionId ?? null });
     if (claim.status === "succeeded") return { action: "no_action" };
 
     let result: AIResult;

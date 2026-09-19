@@ -1,8 +1,13 @@
 import { OpenAICompatibleProvider } from "./providers/openai-compatible.ts";
-import type { AIProvider, AIRequest } from "./types.ts";
+import type { AIProvider, AIRequest, TranscriptionRequest, TranscriptionResult } from "./types.ts";
 
 export function generateWithProvider(provider: AIProvider, input: AIRequest) {
     return provider.generate(input);
+}
+
+export function transcribeWithProvider(provider: AIProvider, input: TranscriptionRequest): Promise<TranscriptionResult> {
+    if (!provider.transcribe) throw new Error("TRANSCRIPTION_NOT_CONFIGURED");
+    return provider.transcribe(input);
 }
 
 function createProvider(): AIProvider {
@@ -16,5 +21,8 @@ function createProvider(): AIProvider {
 export const aiService = {
     generate(input: AIRequest) {
         return generateWithProvider(createProvider(), input);
+    },
+    transcribe(input: TranscriptionRequest): Promise<TranscriptionResult> {
+        return transcribeWithProvider(createProvider(), input);
     },
 };

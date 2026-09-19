@@ -18,15 +18,13 @@ import { useResolveClassNames } from "uniwind";
 
 import AppText from "@/components/ui/Text";
 import IconButton from "@/components/ui/IconButton";
+import { usePreferences } from "@/providers/PreferencesProvider";
+import type { NotificationCategoryKey } from "@/services/preferences.service";
 import type { YouStackParamList } from "@/navigation/routes";
 
 type Props = NativeStackScreenProps<YouStackParamList, "Notifications">;
 
-type NotificationKey =
-    | "insights"
-    | "experiments"
-    | "checkIns"
-    | "weekly";
+type NotificationKey = NotificationCategoryKey;
 
 type NotificationSettings = Record<NotificationKey, boolean>;
 
@@ -71,15 +69,11 @@ const notificationPreviews = [
 ];
 
 export default function NotificationsScreen({ navigation }: Props) {
-    const [enabled, setEnabled] = useState(true);
-    const [quietHours, setQuietHours] = useState(true);
+    const { preferences, updatePreferences } = usePreferences();
 
-    const [settings, setSettings] = useState<NotificationSettings>({
-        insights: true,
-        experiments: true,
-        checkIns: false,
-        weekly: true,
-    });
+    const enabled = preferences.notificationsEnabled;
+    const quietHours = preferences.quietHoursEnabled;
+    const settings: NotificationSettings = preferences.notificationCategories;
 
     const iconColor = useResolveClassNames("text-text-medium").color;
     const activeColor = useResolveClassNames("text-primary").color;
@@ -88,10 +82,17 @@ export default function NotificationsScreen({ navigation }: Props) {
         key: NotificationKey,
         value: boolean
     ) => {
-        setSettings((current) => ({
-            ...current,
-            [key]: value,
-        }));
+        void updatePreferences({
+            notificationCategories: { ...settings, [key]: value },
+        });
+    };
+
+    const setEnabled = (value: boolean) => {
+        void updatePreferences({ notificationsEnabled: value });
+    };
+
+    const setQuietHours = (value: boolean) => {
+        void updatePreferences({ quietHoursEnabled: value });
     };
 
     return (
@@ -275,7 +276,7 @@ export default function NotificationsScreen({ navigation }: Props) {
                     <Pressable
                         onPress={() =>
                             enabled &&
-                            setQuietHours((value) => !value)
+                            setQuietHours(!quietHours)
                         }
                         disabled={!enabled}
                         className={`flex-row items-center rounded-[28px] border border-border bg-surface p-5 ${!enabled ? "opacity-50" : ""

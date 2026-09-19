@@ -27,7 +27,12 @@ export function createMemoryRepository(userClient: SupabaseClient, adminClient: 
             if (error) throw new Error("MEMORY_CONTEXT_UNAVAILABLE");
             return data.map((memory) => ({ content: memory.content, memoryType: memory.memory_type, lastObservedAt: memory.last_observed_at }));
         },
-        async claimRun(input: { conversationId: string; userMessageId: string }) {
+        async claimRun(input: { conversationId: string | null; userMessageId: string | null; reflectionId?: string | null }) {
+            if (input.reflectionId) {
+                const { data, error } = await adminClient.rpc("claim_reflection_ai_run", { run_user_id: userId, run_reflection_id: input.reflectionId, run_task: "memory_evaluation" });
+                if (error || !data) throw new Error(error?.message?.includes("MIRROR_RATE_LIMITED") ? "RATE_LIMITED" : "MEMORY_RUN_UNAVAILABLE");
+                return data as { id: string; status: string };
+            }
             const { data, error } = await adminClient.rpc("claim_ai_run", { run_user_id: userId, run_conversation_id: input.conversationId, run_user_message_id: input.userMessageId, run_task: "memory_evaluation" });
             if (error || !data) throw new Error(error?.message?.includes("MIRROR_RATE_LIMITED") ? "RATE_LIMITED" : "MEMORY_RUN_UNAVAILABLE");
             return data as { id: string; status: string };

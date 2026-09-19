@@ -63,7 +63,13 @@
         }
       ],
       "expo-asset",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "onesignal-expo-plugin",
+        {
+          "mode": "development"
+        }
+      ]
     ],
     "extra": {
       "eas": {

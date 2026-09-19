@@ -86,7 +86,7 @@ export type MemoryEvidence = {
     checkInId: string | null;
     observedAt: string;
     createdAt: string;
-    sourceType: "conversation" | "reflection" | "check_in" | "experiment" | "message" | "unknown";
+    sourceType: "conversation" | "reflection" | "check_in" | "experiment" | "observation" | "message" | "unknown";
     sourceId: string | null;
     signalType: string | null;
     sourceExcerpt: string | null;

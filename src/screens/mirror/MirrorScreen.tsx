@@ -33,6 +33,7 @@ import AppText from "@/components/ui/Text";
 import { cn } from "@/lib/cn";
 import { useAuth } from "@/hooks/useAuth";
 import { useMirror } from "@/hooks/useMirror";
+import { voiceReflectionService } from "@/services/voiceReflection.service";
 import type { Message as StoredMessage } from "@/types/data";
 
 type MirrorScreenProps = {
@@ -211,13 +212,41 @@ export default function MirrorScreen({
         }
     };
 
-    const submitVoice = () => {
-        if (!audioRecorder.uri) return;
+    const submitVoice = async () => {
+        const uri = audioRecorder.uri;
+        if (!uri) return;
 
         setVoiceReady(false);
-        const uri = audioRecorder.uri;
-        try { new File(uri).delete(); } catch { }
-        Alert.alert("Try voice in a conversation", "Open a conversation to talk with Aks by voice. Its replies are private and stay in your thread.");
+        const file = new File(uri);
+        try {
+            const extension = file.extension?.toLowerCase() || ".m4a";
+            const mimeTypeByExtension: Record<string, string> = {
+                ".m4a": "audio/m4a",
+                ".mp4": "audio/mp4",
+                ".aac": "audio/aac",
+                ".wav": "audio/wav",
+                ".mp3": "audio/mpeg",
+                ".webm": "audio/webm",
+            };
+            const mimeType = mimeTypeByExtension[extension] ?? "audio/m4a";
+            const base64 = await file.base64();
+            await voiceReflectionService.upload(base64, mimeType);
+            try { file.delete(); } catch { }
+        } catch (error) {
+            try { file.delete(); } catch { }
+            const code = error instanceof Error ? error.message : "";
+            const title = "Couldn't save that recording";
+            const message = code === "TRANSCRIPTION_NOT_CONFIGURED"
+                ? "Voice reflections aren't available on this build yet. You can still type a reflection."
+                : code === "AUDIO_TOO_LARGE"
+                    ? "That recording is too long. Try a shorter one."
+                    : code === "VOICE_AUDIO_TOO_LARGE"
+                        ? "That recording is too long. Try a shorter one."
+                        : code === "UNAUTHORIZED"
+                            ? "Please sign in and try again."
+                            : "Aks couldn't save that recording just now. You can try again or type instead.";
+            Alert.alert(title, message);
+        }
     };
 
     const discardVoice = () => {
@@ -396,7 +425,7 @@ export default function MirrorScreen({
                                         Voice reflection ready
                                     </AppText>
                                     <AppText variant="caption" className="mt-1 text-text-low">
-                                        A backend is required to transcribe and understand it.
+                                        Aks will transcribe it into a reflection.
                                     </AppText>
                                 </View>
                                 <IconButton
@@ -407,7 +436,7 @@ export default function MirrorScreen({
                                 </IconButton>
                                 <IconButton
                                     accessibilityLabel="Send recording"
-                                    onPress={submitVoice}
+                                    onPress={() => void submitVoice()}
                                     className="ml-1 bg-primary"
                                 >
                                     <HugeiconsIcon

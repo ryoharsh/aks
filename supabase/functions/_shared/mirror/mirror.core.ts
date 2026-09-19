@@ -35,6 +35,36 @@ export type ObservationTurnResult = {
     patternActions: Array<{ action: "created" | "updated"; patternId: string; status: "candidate" | "possible" | "testing" | "supported" | "not_supported" | "archived" }>;
 };
 
+/**
+ * ContextResolver relevance filter: which connected sources could be relevant
+ * to this message. Topic-keyword based, deliberately coarse — the DB-side
+ * window/bounding does the rest. null = no filter (all connected sources).
+ */
+const relevantSourcesForMessage = (message: string): string[] | null => {
+    const text = message.toLowerCase();
+    const sources = new Set<string>();
+    const has = (...patterns: RegExp[]) => patterns.some((pattern) => pattern.test(text));
+    if (has(/plan|schedule|meeting|calendar|event|busy|afternoon|morning|evening|today|tomorrow|noon|block/)) {
+        sources.add("calendar"); sources.add("google_calendar"); sources.add("apple_calendar");
+    }
+    if (has(/task|todo|reminder|due|forgot|didn'?t do|unfinished/)) {
+        sources.add("reminders"); sources.add("google_tasks"); sources.add("apple_reminders"); sources.add("todoist");
+    }
+    if (has(/where|out|home|office|travel|commut|away|location/)) {
+        sources.add("location");
+    }
+    if (has(/work|commit|repo|code|pull request|github|project/)) {
+        sources.add("github"); sources.add("notion");
+    }
+    if (has(/slack|message|email|inbox|notification|reply/)) {
+        sources.add("slack"); sources.add("email");
+    }
+    if (has(/phone|screen|app|instagram|youtube|scroll|distract/)) {
+        sources.add("screen_time"); sources.add("app_activity");
+    }
+    return sources.size ? [...sources] : null;
+};
+
 const makeRunAI = (input: MirrorTurnInput) => {
     const ai = input.ai ?? aiService;
     return async <T>(request: AIRequest, validate: (content: string) => T) => {
@@ -100,13 +130,17 @@ export async function processConversationTurn(input: MirrorTurnInput): Promise<C
         return { conversationId: input.conversationId, response: { response: { text: crisisResponse }, followUp: null }, assistantMessage, observable: false };
     }
 
-    const [recentMessages, recentSignals, activeMemories, preferences] = await Promise.all([
+    const [recentMessages, recentSignals, activeMemories, supportedPatterns, activeExperiments, relevantLearnings, preferences, contextBundle] = await Promise.all([
         input.repository.getRecentMessages(input.conversationId, { createdAt: userMessage.createdAt, id: userMessage.id }),
         input.repository.getRecentSignals(userMessage.createdAt),
         input.memoryRepository?.getActiveMemories() ?? Promise.resolve([]),
+        input.repository.getSupportedPatterns(),
+        input.repository.getActiveExperiments(),
+        input.repository.getRelevantLearnings(),
         input.repository.getPreferences(),
+        input.repository.getContextBundle ? input.repository.getContextBundle(userMessage.createdAt, 6, 8, relevantSourcesForMessage(userMessage.content)) : Promise.resolve({ connectedSources: [] as string[], observations: [] as never[] }),
     ]);
-    const context = buildMirrorContext({ currentMessage: userMessage.content, conversation: { title: conversation.title }, recentMessages, recentSignals, activeMemories, preferences });
+    const context = buildMirrorContext({ currentMessage: userMessage.content, conversation: { title: conversation.title }, recentMessages, recentSignals, activeMemories, supportedPatterns, activeExperiments, relevantLearnings, preferences, contextSources: contextBundle.connectedSources, relevantObservations: contextBundle.observations.slice(0, 8) });
     let policyBlocked = false;
     let responseRun;
     try {

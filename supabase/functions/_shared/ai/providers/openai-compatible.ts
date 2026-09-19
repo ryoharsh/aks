@@ -1,9 +1,13 @@
-import type { AIProvider, AIRequest, AIResult } from "../types.ts";
+import type { AIProvider, AIRequest, AIResult, TranscriptionRequest, TranscriptionResult } from "../types.ts";
 import { AIProviderError } from "../types.ts";
 
 type ProviderResponse = {
     choices?: Array<{ message?: { content?: string } }>;
     usage?: { prompt_tokens?: number; completion_tokens?: number };
+};
+
+type TranscriptionResponse = {
+    text?: string;
 };
 
 export class OpenAICompatibleProvider implements AIProvider {
@@ -58,6 +62,35 @@ export class OpenAICompatibleProvider implements AIProvider {
                 inputTokens: payload.usage?.prompt_tokens,
                 outputTokens: payload.usage?.completion_tokens,
             },
+        };
+    }
+
+    async transcribe(input: TranscriptionRequest): Promise<TranscriptionResult> {
+        const transcriptionModel = Deno.env.get("AI_TRANSCRIBE_MODEL");
+        if (!transcriptionModel) throw new Error("TRANSCRIPTION_NOT_CONFIGURED");
+
+        const startedAt = Date.now();
+        const form = new FormData();
+        form.append("file", new Blob([new Uint8Array(input.audio)], { type: input.mimeType }), "audio");
+        form.append("model", transcriptionModel);
+        form.append("response_format", "json");
+        const response = await fetch(`${this.baseUrl.replace(/\/$/, "")}/audio/transcriptions`, {
+            method: "POST",
+            signal: AbortSignal.timeout(60_000),
+            headers: { Authorization: `Bearer ${this.apiKey}` },
+            body: form,
+        });
+        if (!response.ok) throw new AIProviderError("AI_PROVIDER_UNAVAILABLE");
+        const payload = await response.json() as TranscriptionResponse;
+        const text = typeof payload.text === "string" ? payload.text.trim() : "";
+        if (!text) throw new Error("AI_PROVIDER_INVALID_RESPONSE");
+        if (text.length > 12000) throw new Error("TRANSCRIPTION_TOO_LARGE");
+
+        return {
+            text,
+            provider: "openai-compatible",
+            model: transcriptionModel,
+            latencyMs: Date.now() - startedAt,
         };
     }
 }

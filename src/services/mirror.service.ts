@@ -1,10 +1,13 @@
 import { MirrorRepositoryError, mirrorRepository } from "@/repositories/mirror.repository";
 import { checkInsService } from "./checkIns.service";
 import { conversationsService } from "./conversations.service";
+import { createCheckInRequestId } from "@/repositories/checkIns.repository";
 import type { Json } from "@/types/database";
 import type { PendingMirrorTurn, MirrorTurn } from "@/types/mirror";
 import { dataEvents } from "./dataEvents";
 import { mirrorRealtimeService, type MirrorVoiceSession, type MirrorVoiceSessionOptions } from "./mirror-realtime.service";
+
+export { createCheckInRequestId };
 
 async function processSavedMessage(pending: PendingMirrorTurn): Promise<MirrorTurn> {
     try {

@@ -15,6 +15,7 @@ import LearningsDataScreen from "@/screens/you/data/LearningsDataScreen";
 import LearningDetailScreen from "@/screens/you/data/LearningDetailScreen";
 import InsightsDataScreen from "@/screens/you/data/InsightsDataScreen";
 import InsightDetailScreen from "@/screens/you/data/InsightDetailScreen";
+import ConnectedSourcesScreen from "@/screens/you/data/ConnectedSourcesScreen";
 import ExperimentSetupScreen from "@/screens/you/data/ExperimentSetupScreen";
 import ExperimentDetailScreen from "@/screens/you/data/ExperimentDetailScreen";
 import type { YourDataStackParamList } from "@/navigation/routes";
@@ -58,6 +59,7 @@ export default function YourDataNavigator({ route }: Props) {
             <Stack.Screen name="LearningDetail" component={LearningDetailScreen} />
             <Stack.Screen name="Insights" component={InsightsDataScreen} />
             <Stack.Screen name="InsightDetail" component={InsightDetailScreen} />
+            <Stack.Screen name="ConnectedSources" component={ConnectedSourcesScreen} />
         </Stack.Navigator>
     );
 }
