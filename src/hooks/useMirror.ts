@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { conversationsService } from "@/services/conversations.service";
 import { createCheckInRequestId, mirrorService } from "@/services/mirror.service";
@@ -7,6 +7,7 @@ import type { Json } from "@/types/database";
 import type { PendingMirrorTurn } from "@/types/mirror";
 import { mirrorOutboxService, type MirrorOutboxItem } from "@/services/mirrorOutbox.service";
 import { MirrorRealtimeError, realTimeErrorMessage, type RealtimeEvent, type VoiceState } from "@/services/realtime/types";
+import { ttsService } from "@/services/tts/tts.service";
 import { useAuth } from "./useAuth";
 
 export function useMirror(initialConversationId?: string) {
@@ -32,6 +33,33 @@ export function useMirror(initialConversationId?: string) {
     const [streamingUserTranscript, setStreamingUserTranscript] = useState("");
     const [streamingAssistantText, setStreamingAssistantText] = useState("");
     const [voiceError, setVoiceError] = useState<string | null>(null);
+    const [streamingReplyText, setStreamingReplyText] = useState("");
+    const [voiceOutputEnabled, setVoiceOutputEnabled] = useState(false);
+    const [ttsSpeaking, setTtsSpeaking] = useState(false);
+    const voiceOutputEnabledRef = useRef(false);
+
+    useEffect(() => ttsService.subscribe((state) => setTtsSpeaking(state.speaking)), []);
+
+    const toggleVoiceOutput = useCallback(() => {
+        setVoiceOutputEnabled((enabled) => {
+            const next = !enabled;
+            voiceOutputEnabledRef.current = next;
+            if (!next) ttsService.stop();
+            return next;
+        });
+    }, []);
+
+    const streamReplyDelta = useCallback((turnId: string) => {
+        return (text: string) => {
+            setStreamingReplyText(text);
+            if (voiceOutputEnabledRef.current) ttsService.updateTurn(turnId, text);
+        };
+    }, []);
+
+    const finishTTSTurn = useCallback((turnId: string, text: string | undefined) => {
+        if (!voiceOutputEnabledRef.current || !text?.trim()) return;
+        ttsService.endTurn(turnId, text);
+    }, []);
 
     const createRequestId = () => globalThis.crypto?.randomUUID?.()
         ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -116,6 +144,7 @@ export function useMirror(initialConversationId?: string) {
             setVoiceError("Voice conversations are available after you sign in.");
             return;
         }
+        ttsService.stop();
         setVoiceError(null);
         setVoiceState("connecting");
         const session = mirrorService.sendVoice({
@@ -203,7 +232,10 @@ export function useMirror(initialConversationId?: string) {
         return () => { request.current += 1; };
     }, [initialConversationId]);
 
-    useEffect(() => () => { request.current += 1; }, []);
+    useEffect(() => () => {
+        request.current += 1;
+        ttsService.stop();
+    }, []);
 
     useEffect(() => () => { clearVoiceSession(); }, []);
 
@@ -211,6 +243,9 @@ export function useMirror(initialConversationId?: string) {
         if (user) return;
         if (voiceSession.current?.active) void stopVoiceConversation();
         clearVoiceSession();
+        ttsService.stop();
+        voiceOutputEnabledRef.current = false;
+        setVoiceOutputEnabled(false);
         setVoiceActive(false);
         setVoiceState("idle");
         setVoiceError(null);
@@ -259,6 +294,7 @@ export function useMirror(initialConversationId?: string) {
     const sendMessage = async (content: string, metadata: Json = {}) => {
         if (processingRef.current) throw new Error("A message is already processing.");
         if (voiceSession.current?.active) await stopVoiceConversation();
+        ttsService.stop();
         if (pendingSave.current && pendingSave.current.content !== content.trim()) {
             setError("Retry or resolve your previous message before sending another one.");
             throw new Error("PENDING_MESSAGE_EXISTS");
@@ -266,6 +302,8 @@ export function useMirror(initialConversationId?: string) {
         processingRef.current = true;
         setProcessing(true);
         setError(null);
+        setStreamingReplyText("");
+        const ttsTurnId = createRequestId();
         try {
             if (!user) throw new Error("MESSAGE_SAVE_FAILED");
             const normalized = content.trim();
@@ -278,9 +316,14 @@ export function useMirror(initialConversationId?: string) {
             await mirrorOutboxService.set(user.id, outboxItem);
             pendingOutbox.current = outboxItem;
             setHasPendingOutbox(true);
-            const result = await mirrorService.sendMessage(conversationId, normalized, requestId, metadata);
-            if (currentRequest !== request.current) return result;
+            const result = await mirrorService.sendMessage(conversationId, normalized, requestId, metadata, streamReplyDelta(ttsTurnId));
+            if (currentRequest !== request.current) {
+                ttsService.stop(ttsTurnId);
+                return result;
+            }
             const turn = applyTurn(result);
+            finishTTSTurn(ttsTurnId, turn.assistantMessage?.content);
+            setStreamingReplyText("");
             await mirrorOutboxService.clear(user.id).catch(() => undefined);
             pendingSave.current = null;
             pendingOutbox.current = null;
@@ -297,6 +340,7 @@ export function useMirror(initialConversationId?: string) {
 
     const retry = async () => {
         if (processingRef.current) return null;
+        ttsService.stop();
         if (!pending.current && (pendingOutbox.current || pendingSave.current)) {
             const item = pendingOutbox.current ?? pendingSave.current!;
             return sendMessage(item.content, item.metadata);
@@ -305,8 +349,14 @@ export function useMirror(initialConversationId?: string) {
         processingRef.current = true;
         setProcessing(true);
         setError(null);
+        setStreamingReplyText("");
+        const ttsTurnId = createRequestId();
         try {
-            return applyTurn(await mirrorService.retryMessage(pending.current));
+            const result = await mirrorService.retryMessage(pending.current, streamReplyDelta(ttsTurnId));
+            const turn = applyTurn(result);
+            finishTTSTurn(ttsTurnId, turn.assistantMessage?.content);
+            setStreamingReplyText("");
+            return turn;
         } finally {
             processingRef.current = false;
             setProcessing(false);
@@ -364,11 +414,13 @@ export function useMirror(initialConversationId?: string) {
         if (processingRef.current) return;
         if (pending.current || pendingOutbox.current || pendingSave.current) return;
         if (voiceSession.current?.active) void stopVoiceConversation();
+        ttsService.stop();
         request.current += 1;
         setConversationId(null);
         setMessages([]);
         setHasEarlier(false);
         setError(null);
+        setStreamingReplyText("");
         pending.current = null;
         pendingSave.current = null;
         if (user) void mirrorOutboxService.clear(user.id);
@@ -378,5 +430,5 @@ export function useMirror(initialConversationId?: string) {
 
     const dismissError = () => setError(null);
 
-    return { conversationId, messages, loading, loadingEarlier, hasEarlier, processing, error, canRetry: Boolean(pending.current) || hasPendingOutbox || Boolean(pendingSave.current), sendMessage, retry, sendCheckIn, loadEarlier, startNewConversation, dismissError, voiceActive, voiceState, streamingUserTranscript, streamingAssistantText, voiceError, startVoiceConversation, stopVoiceConversation, interruptAssistant, dismissVoiceError };
+    return { conversationId, messages, loading, loadingEarlier, hasEarlier, processing, streamingReplyText, error, canRetry: Boolean(pending.current) || hasPendingOutbox || Boolean(pendingSave.current), sendMessage, retry, sendCheckIn, loadEarlier, startNewConversation, dismissError, voiceActive, voiceState, streamingUserTranscript, streamingAssistantText, voiceError, startVoiceConversation, stopVoiceConversation, interruptAssistant, dismissVoiceError, voiceOutputEnabled, ttsSpeaking, toggleVoiceOutput };
 }

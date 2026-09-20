@@ -20,6 +20,17 @@ type Props = {
     messageKey?: string;
 };
 
+/**
+ * Only the first MAX_ANIMATED_WORDS words get their own animated node; the
+ * remaining words of a long message render as plain (already-visible) text.
+ * This keeps per-message animated nodes bounded so long replies never flood
+ * the UI thread during the screen transition — and the entrance still reads
+ * the same, since later words appear last anyway.
+ */
+const MAX_ANIMATED_WORDS = 26;
+const PER_WORD_DELAY_MS = 40;
+const MAX_TOTAL_DELAY_MS = 420;
+
 function AnimatedWord({
     word,
     index,
@@ -36,7 +47,7 @@ function AnimatedWord({
         opacity.value = 0;
         translateY.value = 16;
 
-        const delay = Math.min(index * 55, 700);
+        const delay = Math.min(index * PER_WORD_DELAY_MS, MAX_TOTAL_DELAY_MS);
 
         opacity.value = withDelay(
             delay,
@@ -111,22 +122,34 @@ export default function AnimatedConversationText({
                 </AppText>
 
                 <View className="flex-row flex-wrap justify-center">
-                    {words.map((word, index) => (
-                        <View
-                            key={`${messageKey}-${index}`}
-                            className="mr-1 overflow-hidden"
-                        >
-                            <AnimatedWord
-                                word={word}
-                                index={index}
-                                animationKey={
-                                    isNewMessage
-                                        ? String(messageKey)
-                                        : `${messageKey}-${words.length}`
-                                }
-                            />
-                        </View>
-                    ))}
+                    {words.map((word, index) => {
+                        const animated = index < MAX_ANIMATED_WORDS;
+                        return (
+                            <View
+                                key={`${messageKey}-${index}`}
+                                className="mr-1 overflow-hidden"
+                            >
+                                {animated ? (
+                                    <AnimatedWord
+                                        word={word}
+                                        index={index}
+                                        animationKey={
+                                            isNewMessage
+                                                ? String(messageKey)
+                                                : `${messageKey}-${words.length}`
+                                        }
+                                    />
+                                ) : (
+                                    <AppText
+                                        variant="title"
+                                        className="font-satoshi-medium text-center text-text-high"
+                                    >
+                                        {word}
+                                    </AppText>
+                                )}
+                            </View>
+                        );
+                    })}
                 </View>
             </Animated.View>
         </View>

@@ -182,27 +182,37 @@ export async function fetchGitHubActivity(context: ProviderFetchContext): Promis
 }
 
 // --- Slack -------------------------------------------------------------------
-// Own activity windows only. Never message content, channels, or colleagues.
-type SlackResponse = { ok: boolean; messages?: Array<{ ts?: string }>; error?: string };
+// Own activity windows only, aggregated across the workspace's public channels
+// the integration can read. Never message content, private channels, or DMs.
+type SlackConversation = { ok: boolean; channels?: Array<{ id: string }>; error?: string };
+type SlackHistory = { ok: boolean; messages?: Array<{ ts?: string; user?: string }>; error?: string };
 
-export async function fetchSlackActivity(context: ProviderFetchContext, channel: string | null): Promise<ProviderObservationDraft[]> {
-    const target = channel ?? "C0general";
-    const data = await fetchJson(
-        `https://slack.com/api/conversations.history?channel=${encodeURIComponent(target)}&oldest=${Date.parse(context.sinceIso) / 1000}&latest=${Date.parse(context.untilIso) / 1000}&count=200`,
+export async function fetchSlackActivity(context: ProviderFetchContext): Promise<ProviderObservationDraft[]> {
+    const list = await fetchJson(
+        `https://slack.com/api/conversations.list?exclude_archived=true&limit=50&types=public_channel`,
         { headers: { Authorization: `Bearer ${context.accessToken}` } },
-    ) as SlackResponse;
-    if (!data.ok) {
-        const error = new Error(`slack_${data.error ?? "error"}`);
+    ) as SlackConversation;
+    if (!list.ok) {
+        const error = new Error(`slack_${list.error ?? "error"}`);
         (error as Error & { status?: number }).status = 403;
         throw error;
     }
+    const oldest = Math.floor(Date.parse(context.sinceIso) / 1000);
+    const latest = Math.floor(Date.parse(context.untilIso) / 1000);
     const byHour = new Map<string, number>();
-    for (const message of data.messages ?? []) {
-        if (!message.ts) continue;
-        const when = iso(Number(message.ts) * 1000);
-        if (!when) continue;
-        const bucket = when.slice(0, 13);
-        byHour.set(bucket, (byHour.get(bucket) ?? 0) + 1);
+    for (const channel of (list.channels ?? []).slice(0, 10)) {
+        const history = await fetchJson(
+            `https://slack.com/api/conversations.history?channel=${channel.id}&oldest=${oldest}&latest=${latest}&limit=200`,
+            { headers: { Authorization: `Bearer ${context.accessToken}` } },
+        ) as SlackHistory;
+        if (!history.ok) continue;
+        for (const message of history.messages ?? []) {
+            if (!message.ts) continue;
+            const when = iso(Number(message.ts) * 1000);
+            if (!when) continue;
+            const bucket = when.slice(0, 13);
+            byHour.set(bucket, (byHour.get(bucket) ?? 0) + 1);
+        }
     }
     return [...byHour.entries()].map(([bucket, count]) => ({
         observationType: "communication_window",
@@ -279,8 +289,5 @@ export const PROVIDER_FETCHERS: Record<string, ProviderFetcher> = {
     github: fetchGitHubActivity,
     notion: fetchNotionActivity,
     email: fetchEmailActivity,
+    slack: fetchSlackActivity,
 };
-
-export function slackFetcher(channel: string | null): ProviderFetcher {
-    return (context) => fetchSlackActivity(context, channel);
-}

@@ -43,7 +43,6 @@
       ],
       // "expo-splash-screen",
       "expo-video",
-      "@lottiefiles/dotlottie-react-native/plugin",
       [
         "expo-audio",
         {
@@ -54,6 +53,21 @@
       ],
       "expo-secure-store",
       "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Aks to understand where your day happens — like travel or time away from home — without storing precise coordinates.",
+          "locationAlwaysAndWhenInUsePermission": "Allow Aks to understand your day's context (travel, changes in routine) even when the app is closed. You can disconnect this anytime.",
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Allow Aks to see event times from your calendar so it can tell a changed plan apart from a dip in motivation.",
+          "remindersPermission": "Allow Aks to see due times of your reminders so planned actions count too."
+        }
+      ],
       [
         "expo-image-picker",
         {

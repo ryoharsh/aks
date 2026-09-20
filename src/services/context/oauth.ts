@@ -1,7 +1,12 @@
 import { Linking } from "react-native";
 
-import { supabase } from "@/lib/supabase";
+import { supabase, supabaseUrl } from "@/lib/supabase";
 import { requireAuthenticatedUser, throwDataError } from "@/repositories/data.repository";
+
+const supabaseAnonKey =
+    process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
+    "";
 
 /**
  * External provider account links (Google, Notion, GitHub, Slack, Todoist...).
@@ -22,11 +27,6 @@ export const OAUTH_SOURCE_NAMES: Record<string, string> = {
 
 let pendingSource: string | null = null;
 const listeners = new Set<(sourceType: string) => void>();
-
-function callbackUrl(): string {
-    // aks://source-callback?source=github&status=connected
-    return "aks://source-callback";
-}
 
 function parseCallback(url: string): { source: string; status: string; label: string } | null {
     try {
@@ -68,13 +68,29 @@ export const oauthSourceLinks = {
     /** Begin connecting an external provider. Returns false if misconfigured. */
     async connect(sourceType: string): Promise<boolean> {
         if (!OAUTH_SOURCE_NAMES[sourceType]) return false;
-        const configUrl = process.env.EXPO_PUBLIC_SOURCE_OAUTH_URL;
-        if (!configUrl || configUrl.trim().length === 0) return false;
         await requireAuthenticatedUser();
         pendingSource = sourceType;
-        const url = `${configUrl.trim()}?source=${encodeURIComponent(sourceType)}&redirect=${encodeURIComponent(callbackUrl())}`;
         try {
-            await Linking.openURL(url);
+            // Ask the backend for a signed authorize URL (state = userId.sourceType.HMAC).
+            const { data: sessionData } = await supabase.auth.getSession();
+            const token = sessionData.session?.access_token;
+            if (!token) return false;
+            const functionsUrl = supabaseUrl.replace(/\/$/, "") + "/functions/v1";
+            const response = await fetch(`${functionsUrl}/source-oauth-start`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}`, apikey: supabaseAnonKey, "Content-Type": "application/json" },
+                body: JSON.stringify({ sourceType }),
+            });
+            if (!response.ok) {
+                pendingSource = null;
+                return false;
+            }
+            const payload = (await response.json()) as { authorizeUrl?: string };
+            if (!payload.authorizeUrl) {
+                pendingSource = null;
+                return false;
+            }
+            await Linking.openURL(payload.authorizeUrl);
             return true;
         } catch {
             pendingSource = null;
@@ -114,8 +130,18 @@ export const oauthSourceLinks = {
     async handleInitialUrl(): Promise<void> {
         const initial = await Linking.getInitialURL().catch(() => null);
         if (initial) await handleCallbackUrl(initial).catch(() => undefined);
+        const unsubscribe = Linking.addEventListener("url", (event) => {
+            void handleCallbackUrl(event.url).catch(() => undefined);
+        });
+        liveUnsubscribe = () => unsubscribe.remove();
     },
 };
+
+let liveUnsubscribe: (() => void) | null = null;
+export function stopOAuthListeners(): void {
+    liveUnsubscribe?.();
+    liveUnsubscribe = null;
+}
 
 /** Shallow check used by the permission manager (never throws). */
 export async function isOAuthSourceLinked(sourceType: string): Promise<boolean> {

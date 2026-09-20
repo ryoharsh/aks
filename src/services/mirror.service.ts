@@ -1,4 +1,4 @@
-import { MirrorRepositoryError, mirrorRepository } from "@/repositories/mirror.repository";
+import { MirrorRepositoryError, mirrorRepository, type MirrorStreamResult } from "@/repositories/mirror.repository";
 import { checkInsService } from "./checkIns.service";
 import { conversationsService } from "./conversations.service";
 import { createCheckInRequestId } from "@/repositories/checkIns.repository";
@@ -9,9 +9,36 @@ import { mirrorRealtimeService, type MirrorVoiceSession, type MirrorVoiceSession
 
 export { createCheckInRequestId };
 
-async function processSavedMessage(pending: PendingMirrorTurn): Promise<MirrorTurn> {
+type GeneratedReply = {
+    assistantMessage: MirrorStreamResult["assistantMessage"];
+    response: MirrorStreamResult["response"];
+    observable: boolean;
+    signals: Array<{ signalType: string; value: Record<string, unknown>; confidence: number | null }>;
+    memoryCandidates: Array<{ action: "created" | "updated"; memoryId: string; status: "candidate" | "active" | "rejected" | "archived" }>;
+    patternActions: Array<{ action: "created" | "updated"; patternId: string; status: "candidate" | "possible" | "testing" | "supported" | "not_supported" | "archived" }>;
+};
+
+/**
+ * Generate the assistant reply. Streams through mirror-stream when a delta
+ * handler is present so the UI can show text as it arrives; any stream
+ * failure falls back to the non-streaming turn (same claim/persistence
+ * semantics server-side).
+ */
+async function generateReply(pending: PendingMirrorTurn, onDelta?: (accumulatedText: string) => void): Promise<GeneratedReply> {
+    if (onDelta) {
+        try {
+            const streamed = await mirrorRepository.processMessageStream(pending.conversationId, pending.userMessage.id, onDelta);
+            return { ...streamed, signals: [], memoryCandidates: [], patternActions: [] };
+        } catch {
+            // Fall through to the non-streaming turn.
+        }
+    }
+    return mirrorRepository.processMessage(pending.conversationId, pending.userMessage.id);
+}
+
+async function processSavedMessage(pending: PendingMirrorTurn, onDelta?: (accumulatedText: string) => void): Promise<MirrorTurn> {
     try {
-        const generated = await mirrorRepository.processMessage(pending.conversationId, pending.userMessage.id);
+        const generated = await generateReply(pending, onDelta);
         dataEvents.emit("messages");
         dataEvents.emit("conversations");
         if (generated.observable !== false) runObservation(pending.conversationId, pending.userMessage.id);
@@ -64,11 +91,13 @@ function runObservation(conversationId: string, userMessageId: string) {
 }
 
 export const mirrorService = {
-    async sendMessage(conversationId: string | null, content: string, requestId: string, metadata: Json = {}) {
+    async sendMessage(conversationId: string | null, content: string, requestId: string, metadata: Json = {}, onDelta?: (accumulatedText: string) => void) {
         const saved = await conversationsService.saveUserMessage(conversationId, content, requestId, metadata);
-        return processSavedMessage({ conversationId: saved.conversationId, userMessage: saved.message });
+        return processSavedMessage({ conversationId: saved.conversationId, userMessage: saved.message }, onDelta);
     },
-    retryMessage: processSavedMessage,
+    retryMessage(pending: PendingMirrorTurn, onDelta?: (accumulatedText: string) => void) {
+        return processSavedMessage(pending, onDelta);
+    },
     sendCheckIn: checkInsService.createCheckIn,
     sendVoice(options: MirrorVoiceSessionOptions): MirrorVoiceSession {
         return mirrorRealtimeService.createSession(options);

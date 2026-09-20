@@ -22,6 +22,7 @@ const assistantMessage = {
 const mocks = vi.hoisted(() => ({
     saveUserMessage: vi.fn(),
     processMessage: vi.fn(),
+    processMessageStream: vi.fn(),
     processObservations: vi.fn(),
     createCheckIn: vi.fn(),
     createRealtimeSession: vi.fn(),
@@ -31,7 +32,7 @@ vi.mock("@/services/conversations.service", () => ({
     conversationsService: { saveUserMessage: mocks.saveUserMessage },
 }));
 vi.mock("@/repositories/mirror.repository", () => ({
-    mirrorRepository: { processMessage: mocks.processMessage, processObservations: mocks.processObservations },
+    mirrorRepository: { processMessage: mocks.processMessage, processMessageStream: mocks.processMessageStream, processObservations: mocks.processObservations },
     MirrorRepositoryError: class MirrorRepositoryError extends Error {
         constructor(public readonly code: string) {
             super(code);
@@ -60,6 +61,7 @@ describe("mirror service", () => {
         vi.clearAllMocks();
         mocks.saveUserMessage.mockResolvedValue({ conversationId: "conversation-1", message: userMessage });
         mocks.processObservations.mockResolvedValue({ signalsSaved: 0, signals: [], memoryCandidates: [], patternActions: [] });
+        mocks.processMessageStream.mockRejectedValue(new Error("stream unavailable"));
     });
 
     it("persists the first message before processing AI", async () => {
@@ -96,6 +98,36 @@ describe("mirror service", () => {
         await mirrorService.retryMessage({ conversationId: "conversation-1", userMessage });
         expect(mocks.saveUserMessage).not.toHaveBeenCalled();
         expect(mocks.processMessage).toHaveBeenCalledOnce();
+    });
+
+    it("streams the reply and forwards deltas", async () => {
+        const deltas: string[] = [];
+        mocks.processMessageStream.mockImplementation(async (_conversationId: string, _userMessageId: string, onDelta: (text: string) => void) => {
+            onDelta("Hi");
+            return {
+                conversationId: "conversation-1",
+                response: { response: { text: assistantMessage.content }, followUp: null },
+                assistantMessage,
+                observable: true,
+            };
+        });
+        const result = await mirrorService.sendMessage(null, userMessage.content, "request-stream", {}, (text) => deltas.push(text));
+        expect(deltas).toEqual(["Hi"]);
+        expect(mocks.processMessage).not.toHaveBeenCalled();
+        expect(result.assistantMessage).toEqual(assistantMessage);
+        expect(result.result?.signals).toEqual([]);
+        expect(result.result?.memoryCandidates).toEqual([]);
+        expect(result.result?.patternActions).toEqual([]);
+    });
+
+    it("falls back to non-streaming when the stream fails", async () => {
+        mocks.processMessage.mockResolvedValue({ assistantMessage, response: { response: { text: assistantMessage.content }, followUp: null }, signals: [] });
+        const deltas: string[] = [];
+        const result = await mirrorService.sendMessage(null, userMessage.content, "request-fallback", {}, (text) => deltas.push(text));
+        expect(mocks.processMessageStream).toHaveBeenCalledWith("conversation-1", "message-user", expect.any(Function));
+        expect(mocks.processMessage).toHaveBeenCalledWith("conversation-1", "message-user");
+        expect(deltas).toEqual([]);
+        expect(result.assistantMessage).toEqual(assistantMessage);
     });
 
     it("preserves the check-in and voice boundaries", async () => {

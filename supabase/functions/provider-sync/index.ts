@@ -14,6 +14,7 @@ const respond = (body: unknown, status = 200) => new Response(JSON.stringify(bod
 const VALID_SOURCES = new Set([
     "google_calendar", "google_tasks", "todoist", "github", "slack", "email", "notion",
 ]);
+// Slack is now in PROVIDER_FETCHERS (workspace-wide public channels).
 
 function classify(status: number | undefined): "temporary" | "error" {
     // 401/403 need re-consent (not transient), 429/5xx are transient.

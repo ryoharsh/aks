@@ -33,6 +33,14 @@ export type AIResult = {
 export interface AIProvider {
     generate(input: AIRequest): Promise<AIResult>;
     transcribe?(input: TranscriptionRequest): Promise<TranscriptionResult>;
+    /**
+     * Streaming variant, when the adapter supports it. Yields incremental
+     * safe-response text chunks as they arrive from the provider and resolves
+     * with the full accumulated content (same shape as `generate`). The
+     * caller still validates the final content before persistence —
+     * streaming never bypasses validation.
+     */
+    generateStream?(input: AIRequest, onDelta: (text: string) => void, signal?: AbortSignal): Promise<AIResult>;
 }
 
 export class AIProviderError extends Error {

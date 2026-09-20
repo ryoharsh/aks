@@ -4,7 +4,6 @@ import type { AIProvider, AIRequest, TranscriptionRequest, TranscriptionResult }
 export function generateWithProvider(provider: AIProvider, input: AIRequest) {
     return provider.generate(input);
 }
-
 export function transcribeWithProvider(provider: AIProvider, input: TranscriptionRequest): Promise<TranscriptionResult> {
     if (!provider.transcribe) throw new Error("TRANSCRIPTION_NOT_CONFIGURED");
     return provider.transcribe(input);
@@ -22,7 +21,28 @@ export const aiService = {
     generate(input: AIRequest) {
         return generateWithProvider(createProvider(), input);
     },
+    /**
+     * Streaming generation through the same provider-neutral abstraction.
+     * Falls back to non-streaming `generate` when the adapter has no
+     * `generateStream` — callers always receive incremental deltas followed
+     * by a complete AIResult either way.
+     */
+    async generateStream(
+        input: AIRequest,
+        onDelta: (text: string) => void,
+        signal?: AbortSignal,
+    ): Promise<AIResultLike> {
+        const provider = createProvider();
+        if (!provider.generateStream) {
+            const result = await provider.generate(input);
+            onDelta(result.content);
+            return result;
+        }
+        return provider.generateStream(input, onDelta, signal);
+    },
     transcribe(input: TranscriptionRequest): Promise<TranscriptionResult> {
         return transcribeWithProvider(createProvider(), input);
     },
 };
+
+export type AIResultLike = Awaited<ReturnType<typeof generateWithProvider>>;

@@ -1,115 +1,70 @@
-For Aks, I would **not** make Notifications a generic “push notification settings” screen. It should control the few notifications that actually support the core loop: **Notice → Experiment → Learn → Return**.
+# Aks — How the App Works (short points)
 
-### Notifications screen
+A quick map of what happens under the hood when you do something in Aks.
+Written as "you do this → the app does that". For onboarding and debugging.
 
-```text
-Notifications
+---
 
-Stay in the loop
-Choose what Aks should bring to your attention.
+## 1. Accounts & Auth
+- You sign up/sign in → Supabase Auth issues a session; every table row you create is stamped with your user id.
+- Every read/write passes Row Level Security (RLS) → you can only ever see your own data. User A cannot read User B's anything.
+- Log out → session cleared; push identity detached so no cross-account notification leakage.
 
-WHAT AKS CAN NOTIFY YOU ABOUT
+## 2. Mirror (conversation)
+- You send a message → the message is saved first (`create_conversation_with_message` RPC, with a request id).
+- Then the `mirror` Edge Function runs: it assembles context (recent messages, memories, patterns, experiments, learnings, connected-source observations) → asks the AI (provider-neutral service) → validates the reply → saves the assistant message.
+- Retry uses the same request id → the server replays instead of duplicating.
+- Crisis-safety phrases bypass AI entirely and return a fixed supportive response.
 
-Insights
-When Aks notices a meaningful pattern.
-                         [ toggle ]
+## 3. Signals → Memories → Patterns → Insights (the intelligence loop)
+- Check-ins, reflections, and conversation turns produce **signals** — small factual observations ("check-in: Good", "focus difficulty mentioned").
+- The **memory engine** reviews signals and may create/update/reject/archive **memories** (durable context like "works better with a clear next step"). Not every message becomes a memory.
+- The **pattern engine** waits for repeated evidence (3+ occurrences) before proposing **patterns** ("X may appear together with Y" — association, never causation).
+- **Insights** are generated only when evidence is strong enough, and each one keeps a link back to the evidence that produced it. You can always ask "why?" and get real sources.
 
-Experiments
-Reminders and updates when an experiment is active.
-                         [ toggle ]
+## 4. Experiments → Learnings
+- From a pattern you can start an **experiment** (draft → active → complete/cancel), with a hypothesis and dates.
+- During the experiment you record **observations** (idempotent via request id).
+- On completion the app computes **deterministic metrics** from real observations (never invented numbers) and writes an honest result summary.
+- A **learning** may then be synthesized from the outcome ("defining the next action may help you start"). Learnings can be revised or archived when new evidence contradicts them.
 
-Reflections
-A gentle nudge when it's useful to check in.
-                         [ toggle ]
+## 5. Check-ins
+- You tap Good/Okay/Chaos → saved through an RPC that is replay-safe (double-tap cannot create two rows).
+- Each check-in also becomes a signal + a timeline event, so later pattern analysis can use it.
 
-Weekly reflection
-A weekly look at what changed and what you learned.
-                         [ toggle ]
+## 6. Reflections
+- A reflection (voice or text) is saved raw first — the original wording is never replaced.
+- AI extraction may pull structured signals from it, but the extraction never overwrites the source.
 
+## 7. Timeline
+- The timeline is a **projection** of meaningful events (check-in, reflection, pattern formed, experiment started/completed, learning, insight) — not one row per message.
+- Conversations are curated so a busy day doesn't flood the list.
 
-TIMING
+## 8. Personal Context (Connected Sources)
+- Optional sources you can connect one-by-one (never "allow all"): location, calendar, reminders/tasks, screen time, photos, voice; plus OAuth providers (Google Calendar/Tasks, Todoist, Notion, GitHub, Slack, Email).
+- Restricted sources (calls, messages, notification history) are marked honestly as unavailable/policy-restricted and are never requested.
+- Each source explains WHAT Aks receives, WHAT is stored, HOW to stop.
+- Connected sources are synced in bounded windows, normalized into **observations** (e.g., "travel, 45 minutes" — never raw GPS coordinates), deduplicated by stable ids, and only for sources currently connected.
+- Meaningful observations become signals through a deterministic bridge; the intelligence engines stay in charge of any interpretation.
 
-Quiet hours
-Don't send notifications during these hours.
-                         >
+## 9. Mirror + context transparency
+- When you mention plans/focus/whereabouts, Mirror pulls only **relevant** observations in a bounded time window — never your whole history.
+- Aks never claims "I just know": it can answer "how do you know?" by naming the source ("you connected your calendar, and it showed…").
+- Disconnecting a source stops collection immediately; "Delete imported data" removes only that source's observations — conversations and memories are untouched.
 
+## 10. Notifications (delivery only)
+- Your preferences (enabled? which categories? quiet hours?) are stored in `user_preferences` — the source of truth.
+- Real events (insight created, experiment update, reminder due) go through a policy pipeline: preference check → quiet hours (timezone-aware, midnight-crossing safe) → freshness → dedup (unique event keys) → OneSignal delivery.
+- Scheduled reminders cancel themselves if the thing already happened (checked-in already → no 7pm nag).
+- Delivery records track sent/failed/opened states; retries are bounded and never spam.
 
-NOTIFICATION PREVIEW
+## 11. Subscription
+- Premium features are gated by RevenueCat entitlement state (server-verified), not a client boolean.
 
-“I noticed something about yesterday.”
-“Your experiment has 2 days left.”
-“You may have learned something this week.”
+## 12. Data controls
+- Export your data or delete your account from settings; deletion cascades all domain rows and detaches delivery identity.
+- Deleting one source's imported data never deletes unrelated intelligence.
 
+---
 
-Manage notifications
-Open your device notification settings.
-```
-
-### What each notification should actually do
-
-**Insights**
-This is probably the most important one. Example:
-
-> “I noticed something about yesterday.”
-
-It should only fire when Aks has something genuinely interesting, not every day.
-
-**Experiments**
-Examples:
-
-> “Day 4 of your focus experiment.”
-> “Your experiment ends tomorrow.”
-
-This directly supports the experiment loop.
-
-**Reflections**
-Keep this gentle. Not:
-
-> “You haven't checked in today 😔”
-
-Instead:
-
-> “A quick check-in might help Aks understand this pattern.”
-
-No guilt, no streak pressure.
-
-**Weekly reflection**
-This is a strong retention mechanism:
-
-> “Here’s what Aks learned about you this week.”
-
-That gives the user an actual reason to return.
-
-### I would add one more thing: Notification preferences, not notification history
-
-I **wouldn't show a list of past notifications** here. That's clutter and doesn't help the user.
-
-The screen should answer:
-
-> **“What is Aks allowed to interrupt me about?”**
-
-That's it.
-
-### Important Aks principle
-
-Don't build:
-
-```text
-Daily reminder
-Morning reminder
-Evening reminder
-Streak reminder
-Missed check-in
-Come back
-You haven't used Aks
-```
-
-That turns Aks into a habit-tracking app.
-
-Instead, notifications should feel like **Aks discovered something worth telling you**.
-
-The best notification philosophy is:
-
-> **Don't remind me to use Aks. Tell me when Aks has something useful to say.**
-
-For the hackathon, I'd make **Insights + Experiments + Weekly Reflection** the headline notification categories and keep everything else minimal.
+**Golden rules baked in everywhere:** your words, source observations, and Aks's inferences are kept as three separate things; numbers come from real data or not at all; correlation is never reported as causation; and Aks stays fully useful with zero sources connected.

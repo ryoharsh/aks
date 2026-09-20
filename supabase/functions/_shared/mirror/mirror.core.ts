@@ -39,8 +39,9 @@ export type ObservationTurnResult = {
  * ContextResolver relevance filter: which connected sources could be relevant
  * to this message. Topic-keyword based, deliberately coarse — the DB-side
  * window/bounding does the rest. null = no filter (all connected sources).
+ * Exported so the streaming transport reuses the exact same relevance rules.
  */
-const relevantSourcesForMessage = (message: string): string[] | null => {
+export const relevantSourcesForMessage = (message: string): string[] | null => {
     const text = message.toLowerCase();
     const sources = new Set<string>();
     const has = (...patterns: RegExp[]) => patterns.some((pattern) => pattern.test(text));

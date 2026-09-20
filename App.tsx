@@ -9,6 +9,7 @@ import { AppFlowProvider } from '@/providers/AppFlowProvider';
 import { PreferencesProvider } from '@/providers/PreferencesProvider';
 import { SubscriptionProvider } from '@/providers/SubscriptionProvider';
 import { useNotificationLifecycle } from '@/hooks/useNotificationLifecycle';
+import { useContextSync } from '@/hooks/useContextSync';
 import ThemePreferenceSync from '@/components/ThemePreferenceSync';
 import './globals.css';
 
@@ -44,6 +45,7 @@ export default function App() {
 
 function AppServices() {
   useNotificationLifecycle();
+  useContextSync();
 
   return (
     <SubscriptionProvider>

@@ -386,6 +386,14 @@ enabled = true
 verify_jwt = true
 entrypoint = "./functions/mirror/index.ts"
 
+[functions.mirror-stream]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/mirror-stream/index.ts"
+# SSE streaming variant of the Mirror turn. The client reads the event stream
+# with expo/fetch and falls back to the non-streaming `mirror` function on
+# errors; the authoritative assistant message is persisted server-side.
+
 [functions.voice-reflection]
 enabled = true
 verify_jwt = true
@@ -425,6 +433,19 @@ verify_jwt = false
 entrypoint = "./functions/provider-sync/index.ts"
 # Called by pg_cron via pg_net with the service role key. Fetches provider
 # data with server-held tokens and ingests service-role observations.
+
+[functions.source-oauth-start]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/source-oauth-start/index.ts"
+# Called by the authenticated app to get a signed provider authorize URL.
+
+[functions.source-oauth-callback]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/source-oauth-callback/index.ts"
+# OAuth provider browsers land here (no JWT). Validates the signed state,
+# exchanges the code, stores tokens in Vault, deep-links back to the app.
 
 [functions.revenuecat-webhook]
 enabled = true

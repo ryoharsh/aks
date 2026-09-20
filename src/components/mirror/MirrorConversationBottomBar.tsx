@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState, } from "react";
 import { Alert, Pressable, TextInput, } from "react-native";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { ArrowUp01Icon, Cancel01Icon, CommandIcon, Menu01Icon, Mic01Icon, StopIcon, } from "@hugeicons/core-free-icons";
+import { ArrowUp01Icon, Cancel01Icon, CommandIcon, Menu01Icon, Mic01Icon, StopIcon, VolumeHighIcon, VolumeOffIcon, XIcon, } from "@hugeicons/core-free-icons";
 import { useResolveClassNames } from "uniwind";
 import Animated, {
     cancelAnimation,
@@ -215,54 +215,8 @@ export default function MirrorConversationBottomBar({
     return (
         <Animated.View
             style={barStyle}
-            className="px-5 pb-3 flex flex-col"
+            className="px-5 pb-8 flex flex-col"
         >
-            {inputVisible ? (
-                <Animated.View
-                    entering={FadeInDown.duration(280)}
-                    exiting={FadeOutDown.duration(200)}
-                    layout={LinearTransition.springify()
-                        .damping(18)
-                        .stiffness(160)}
-                    className="mb-2 z-10"
-                >
-                    <Animated.View
-                        entering={FadeInUp.duration(260)}
-                        layout={LinearTransition.springify()
-                            .damping(18)
-                            .stiffness(170)}
-                        className="min-h-12 flex-row items-end rounded-3xl bg-surface/60 p-1.5 pl-4"
-                    >
-                        <TextInput
-                            ref={inputRef}
-                            value={message}
-                            onChangeText={handleMessageChange}
-                            placeholder="Tell Aks what’s on your mind…"
-                            placeholderTextColor={low.color}
-                            multiline
-                            maxLength={1200}
-                            returnKeyType="default"
-                            className="max-h-28 min-h-10 flex-1 py-2 font-satoshi text-[15px] leading-5 text-text-high"
-                        />
-
-                        {hasMessage ? (
-                            <Animated.View
-                                entering={FadeIn.duration(180)}
-                                exiting={FadeOut.duration(120)}
-                            >
-                                <AnimatedSendButton
-                                    onPress={() => void handleSend()}
-                                    disabled={
-                                        mirror.processing ||
-                                        mirror.loading
-                                    }
-                                />
-                            </Animated.View>
-                        ) : null}
-                    </Animated.View>
-                </Animated.View>
-            ) : null}
-
             {menuOpen ? (
                 <Animated.View
                     entering={FadeInDown.duration(260)}
@@ -304,99 +258,190 @@ export default function MirrorConversationBottomBar({
                 </Animated.View>
             ) : null}
 
-            <Animated.View
-                layout={LinearTransition.springify()
-                    .damping(18)
-                    .stiffness(170)}
-                className="h-17 mx-13 flex-row items-center justify-evenly rounded-4xl bg-surface"
-            >
-                <AnimatedActionButton
-                    delay={80}
-                    onPress={cancelInput}
-                    accessibilityLabel="Close composer"
-                    className="bg-red-400"
-                    icon={
-                        <HugeiconsIcon
-                            icon={Cancel01Icon}
-                            size={28}
-                            color="#fff"
-                        />
-                    }
-                />
-
-                <AnimatedActionButton
-                    delay={140}
-                    onPress={toggleInput}
-                    accessibilityLabel="Open keyboard"
-                    active={inputVisible}
-                    icon={
-                        <HugeiconsIcon
-                            icon={CommandIcon}
-                            size={20}
-                            color={high.color}
-                        />
-                    }
-                />
-
+            {inputVisible ? (
                 <Animated.View
-                    entering={FadeInUp.delay(200).duration(400)}
-                    style={voiceStyle}
+                    entering={FadeInDown.duration(280)}
+                    exiting={FadeOutDown.duration(200)}
+                    layout={LinearTransition.springify()
+                        .damping(18)
+                        .stiffness(160)}
+                    className="mb-2 z-10"
+                >
+                    <Animated.View
+                        entering={FadeInUp.duration(260)}
+                        layout={LinearTransition.springify()
+                            .damping(18)
+                            .stiffness(170)}
+                        className="min-h-12 flex-row items-end rounded-3xl bg-surface/60 p-1.5 pl-4"
+                    >
+                        <TextInput
+                            ref={inputRef}
+                            value={message}
+                            onChangeText={handleMessageChange}
+                            placeholder="Tell Aks what’s on your mind…"
+                            placeholderTextColor={low.color}
+                            multiline
+                            maxLength={1200}
+                            returnKeyType="default"
+                            className="max-h-28 min-h-10 flex-1 py-2 font-satoshi text-[15px] leading-5 text-text-high"
+                        />
+
+                        {hasMessage ? (
+                            <Animated.View
+                                entering={FadeIn.duration(180)}
+                                exiting={FadeOut.duration(120)}
+                            >
+                                <AnimatedSendButton
+                                    onPress={() => void handleSend()}
+                                    disabled={
+                                        mirror.processing ||
+                                        mirror.loading
+                                    }
+                                    icon={
+                                        <HugeiconsIcon
+                                            icon={ArrowUp01Icon}
+                                            size={20}
+                                            color="#fff"
+                                        />
+                                    }
+                                />
+                            </Animated.View>
+                        ) : (
+                            <Animated.View
+                                entering={FadeIn.duration(180)}
+                                exiting={FadeOut.duration(120)}
+                            >
+                                <AnimatedSendButton
+                                    onPress={() => setInputVisible(false)}
+                                    icon={
+                                        <HugeiconsIcon
+                                            icon={XIcon}
+                                            size={20}
+                                            color="#fff"
+                                        />
+                                    }
+                                />
+                            </Animated.View>
+                        )}
+                    </Animated.View>
+                </Animated.View>
+            ) : <>
+                <Animated.View
+                    layout={LinearTransition.springify()
+                        .damping(18)
+                        .stiffness(170)}
+                    className="h-17 mx-13 flex-row items-center justify-evenly rounded-4xl bg-surface"
                 >
                     <AnimatedActionButton
-                        onPress={
-                            mirror.voiceActive
-                                ? stopVoice
-                                : startVoice
+                        delay={80}
+                        onPress={cancelInput}
+                        accessibilityLabel="Close composer"
+                        className="bg-red-400"
+                        icon={
+                            <HugeiconsIcon
+                                icon={Cancel01Icon}
+                                size={28}
+                                color="#fff"
+                            />
                         }
+                    />
+
+                    <AnimatedActionButton
+                        delay={140}
+                        onPress={toggleInput}
+                        accessibilityLabel="Open keyboard"
+                        active={inputVisible}
+                        icon={
+                            <HugeiconsIcon
+                                icon={CommandIcon}
+                                size={20}
+                                color={high.color}
+                            />
+                        }
+                    />
+
+                    <Animated.View
+                        entering={FadeInUp.delay(200).duration(400)}
+                        style={voiceStyle}
+                    >
+                        <AnimatedActionButton
+                            onPress={
+                                mirror.voiceActive
+                                    ? stopVoice
+                                    : startVoice
+                            }
+                            accessibilityLabel={
+                                mirror.voiceActive
+                                    ? "Stop voice conversation"
+                                    : "Start voice conversation"
+                            }
+                            active={mirror.voiceActive}
+                            icon={
+                                <HugeiconsIcon
+                                    icon={
+                                        mirror.voiceActive
+                                            ? StopIcon
+                                            : Mic01Icon
+                                    }
+                                    size={20}
+                                    color={high.color}
+                                    strokeWidth={1.8}
+                                />
+                            }
+                        />
+                    </Animated.View>
+
+                    <AnimatedActionButton
+                        delay={200}
+                        onPress={mirror.toggleVoiceOutput}
                         accessibilityLabel={
-                            mirror.voiceActive
-                                ? "Stop voice conversation"
-                                : "Start voice conversation"
+                            mirror.voiceOutputEnabled
+                                ? "Turn spoken replies off"
+                                : "Turn spoken replies on"
                         }
-                        active={mirror.voiceActive}
+                        active={mirror.voiceOutputEnabled}
                         icon={
                             <HugeiconsIcon
                                 icon={
-                                    mirror.voiceActive
-                                        ? StopIcon
-                                        : Mic01Icon
+                                    mirror.voiceOutputEnabled
+                                        ? VolumeHighIcon
+                                        : VolumeOffIcon
                                 }
                                 size={20}
                                 color={high.color}
-                                strokeWidth={1.8}
+                            />
+                        }
+                    />
+
+                    <AnimatedActionButton
+                        delay={260}
+                        onPress={toggleMenu}
+                        accessibilityLabel="More conversation options"
+                        active={menuOpen}
+                        icon={
+                            <HugeiconsIcon
+                                icon={Menu01Icon}
+                                size={20}
+                                color={high.color}
                             />
                         }
                     />
                 </Animated.View>
 
-                <AnimatedActionButton
-                    delay={260}
-                    onPress={toggleMenu}
-                    accessibilityLabel="More conversation options"
-                    active={menuOpen}
-                    icon={
-                        <HugeiconsIcon
-                            icon={Menu01Icon}
-                            size={20}
-                            color={high.color}
-                        />
-                    }
-                />
-            </Animated.View>
-
-            <Animated.View
-                style={hintStyle}
-                className="px-4"
-                pointerEvents="none"
-            >
-                <AppText
-                    variant="caption"
-                    className="mt-3 text-center text-text-high"
+                <Animated.View
+                    style={hintStyle}
+                    className="px-4"
+                    pointerEvents="none"
                 >
-                    You don’t need to organize your thoughts
-                    first. Just start talking.
-                </AppText>
-            </Animated.View>
+                    <AppText
+                        variant="caption"
+                        className="mt-3 text-center text-text-high"
+                    >
+                        You don’t need to organize your thoughts
+                        first. Just start talking.
+                    </AppText>
+                </Animated.View>
+            </>}
         </Animated.View>
     );
 }
@@ -469,9 +514,11 @@ function AnimatedActionButton({
 function AnimatedSendButton({
     onPress,
     disabled,
+    icon,
 }: {
     onPress: () => void;
     disabled?: boolean;
+    icon: React.ReactElement;
 }) {
     const scale = useSharedValue(0.7);
 
@@ -498,11 +545,7 @@ function AnimatedSendButton({
                 disabled={disabled}
                 className="bg-primary"
             >
-                <HugeiconsIcon
-                    icon={ArrowUp01Icon}
-                    size={20}
-                    color="#fff"
-                />
+                {icon}
             </IconButton>
         </Animated.View>
     );

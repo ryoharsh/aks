@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
+    cancelAnimation,
     Easing,
     useAnimatedStyle,
     useSharedValue,
@@ -11,13 +12,22 @@ import Animated, {
 
 const AnimatedGradient = Animated.createAnimatedComponent(LinearGradient);
 
-export default function AnimatedAmbientBackground() {
+export default function AnimatedAmbientBackground({
+    active = true,
+    fadeIn = false,
+}: {
+    /** Pause the gradient motion when the screen is not settled/focused. */
+    active?: boolean;
+    /** Fade the layer in from opacity 0 when first mounted (smooth entry). */
+    fadeIn?: boolean;
+} = {}) {
     const p1 = useSharedValue(0);
     const p2 = useSharedValue(0);
     const p3 = useSharedValue(0);
     const p4 = useSharedValue(0);
 
     useEffect(() => {
+        if (!active) return;
         p1.value = withRepeat(
             withTiming(1, { duration: 18000, easing: Easing.inOut(Easing.sin) }),
             -1,
@@ -38,7 +48,22 @@ export default function AnimatedAmbientBackground() {
             -1,
             true,
         );
-    }, [p1, p2, p3, p4]);
+        return () => {
+            cancelAnimation(p1);
+            cancelAnimation(p2);
+            cancelAnimation(p3);
+            cancelAnimation(p4);
+        };
+    }, [p1, p2, p3, p4, active]);
+
+    const layerStyle = useAnimatedStyle(() => ({
+        opacity: fadeIn ? layerOpacity.value : 1,
+    }));
+    const layerOpacity = useSharedValue(fadeIn ? 0 : 1);
+    useEffect(() => {
+        if (!fadeIn) return;
+        layerOpacity.value = withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) });
+    }, [fadeIn, layerOpacity]);
 
     const lerp = (t: number, a: number, b: number) => {
         "worklet";
@@ -86,7 +111,7 @@ export default function AnimatedAmbientBackground() {
     }));
 
     return (
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, layerStyle]}>
             <View style={styles.base} />
 
             <AnimatedGradient
@@ -116,7 +141,7 @@ export default function AnimatedAmbientBackground() {
                 end={{ x: 0, y: 0 }}
                 style={[styles.gradient, fourthStyle]}
             />
-        </View>
+        </Animated.View>
     );
 }
 
