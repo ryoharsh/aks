@@ -20,6 +20,11 @@ const TABLE_SPECS = [
     { table: "learning_evidence", order: "created_at" },
     { table: "insights", order: "created_at" },
     { table: "timeline_events", order: "created_at" },
+    // Connected-source context actually collected for this account. Provider
+    // account rows are intentionally excluded: they hold internal token
+    // references, which never belong in a user-facing export.
+    { table: "observations", order: "observed_at" },
+    { table: "user_data_sources", order: "created_at" },
     { table: "data_sources", order: "connected_at" },
 ] as const;
 

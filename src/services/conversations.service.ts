@@ -2,6 +2,7 @@ import { conversationsRepository } from "@/repositories/conversations.repository
 import { messagesRepository } from "@/repositories/messages.repository";
 import type { Json } from "@/types/database";
 import type { MessageRole, PageOptions } from "@/types/data";
+import { copy } from "@/constants/copy";
 import { dataEvents } from "./dataEvents";
 
 function titleFromMessage(content: string) {
@@ -35,9 +36,14 @@ export const conversationsService = {
         dataEvents.emit("conversations");
         return message;
     },
+    editMessage: async (messageId: string, content: string) => {
+        const message = await conversationsRepository.editMessage(messageId, content);
+        dataEvents.emit("messages");
+        return message;
+    },
     async saveUserMessage(conversationId: string | null, content: string, requestId: string, metadata: Json = {}) {
         const normalized = content.trim();
-        if (!normalized) throw new Error("Write something before sending.");
+        if (!normalized) throw new Error(copy.errors.emptyMessage);
         const created = await conversationsRepository.createWithMessage(
             conversationId,
             titleFromMessage(normalized),

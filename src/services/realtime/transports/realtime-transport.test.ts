@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createWebSocketTransport, type WebSocketFactory, type WebSocketLike } from "./realtime-transport";
+import { createRealtimeTransport, createWebSocketTransport, type WebSocketFactory, type WebSocketLike } from "./realtime-transport";
 import type { RealtimeSessionSpec } from "../types";
 import { MirrorRealtimeError } from "../types";
 
@@ -79,6 +79,25 @@ describe("WebSocket realtime transport", () => {
         expect(sockets[0].readyState).toBe(1);
     });
 
+    it("attaches query-placed tokens (Gemini ephemeral) without an Authorization header", async () => {
+        const { factory, sockets } = createFakeSocketFactory();
+        const transport = createWebSocketTransport({ webSocketFactory: factory });
+        const resolved = transport.connect({
+            ...spec,
+            endpoint: "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained",
+            sessionToken: "ephemeral-token",
+            auth: { placement: "query", param: "access_token" },
+        });
+
+        expect(sockets[0].url).toBe(
+            "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=ephemeral-token",
+        );
+        expect(sockets[0].opts.headers).toBeUndefined();
+
+        sockets[0].open();
+        await resolved;
+    });
+
     it("queues messages until open and flushes them in order", async () => {
         const { factory, sockets } = createFakeSocketFactory();
         const transport = createWebSocketTransport({ webSocketFactory: factory });
@@ -145,6 +164,43 @@ describe("WebSocket realtime transport", () => {
 
         sockets[0].closeFromServer(1006);
         expect(closes).toEqual([{ code: 1006, reason: "", wasClean: false }]);
+    });
+
+    it("constructs the platform WebSocket with new on the default (real-device) path", async () => {
+        const seen: { url: string; protocols?: string | string[]; options?: { headers?: Record<string, string> } }[] = [];
+        class FakePlatformSocket {
+            readyState = 0;
+            constructor(
+                public url: string,
+                public protocols?: string | string[],
+                public options?: { headers?: Record<string, string> },
+            ) {
+                seen.push({ url, protocols, options });
+            }
+            send() {}
+            close() {}
+            addEventListener(type: string, listener: (event: { data?: unknown }) => void) {
+                if (type === "open") {
+                    this.readyState = 1;
+                    setTimeout(() => listener({}), 0);
+                }
+            }
+        }
+        const previous = (globalThis as Record<string, unknown>).WebSocket;
+        (globalThis as Record<string, unknown>).WebSocket = FakePlatformSocket;
+        try {
+            // No injected factory → defaultWebSocketFactory. A class called
+            // without `new` throws TypeError immediately, so reaching open
+            // proves construction is correct.
+            const transport = createRealtimeTransport(spec);
+            await transport.connect(spec);
+            expect(seen.length).toBe(1);
+            expect(seen[0]?.url).toBe(spec.endpoint);
+            expect(seen[0]?.options?.headers).toEqual({ Authorization: `Bearer ${spec.sessionToken}` });
+            await transport.close();
+        } finally {
+            (globalThis as Record<string, unknown>).WebSocket = previous;
+        }
     });
 
     it("closes cleanly and rejects further sends", async () => {

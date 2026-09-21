@@ -1,6 +1,7 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, assertSupabaseConfigured } from "@/lib/supabase";
 import type { Database, Json } from "@/types/database";
 import type { Experiment, ExperimentObservation, Page, PageOptions } from "@/types/data";
+import { copy } from "@/constants/copy";
 import { requireAuthenticatedUser, throwDataError } from "./data.repository";
 import { pageRange } from "./pagination";
 
@@ -12,8 +13,9 @@ function isExperiment(value: unknown): value is Experiment {
 }
 
 async function invoke(action: string, body: Record<string, unknown>) {
+    assertSupabaseConfigured();
     const { data, error } = await supabase.functions.invoke("experiment", { body: { action, ...body } });
-    if (error) throwDataError(error, "We couldn't update this experiment.");
+    if (error) throwDataError(error, copy.errors.writes.experimentUpdate);
     return data;
 }
 
@@ -40,7 +42,7 @@ export const experimentsRepository = {
     },
     async action(action: string, body: Record<string, unknown>): Promise<Experiment> {
         const data = await invoke(action, body);
-        if (!isExperiment(data)) throwDataError(null, "The experiment response was invalid.");
+        if (!isExperiment(data)) throwDataError(null, copy.errors.writes.experimentInvalid);
         return data;
     },
     create(input: { patternId: string; title: string; hypothesis: string; description: string; durationDays: number }) {

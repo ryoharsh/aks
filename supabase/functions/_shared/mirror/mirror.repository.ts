@@ -23,7 +23,10 @@ export function createMirrorRepository(userClient: SupabaseClient, adminClient: 
             return { id: data.id, content: data.content, createdAt: data.created_at };
         },
         async findAssistantReply(conversationId: string, messageId: string): Promise<StoredAssistant | null> {
-            const { data, error } = await userClient.from("messages").select("id, conversation_id, role, content, reply_to_message_id, metadata, created_at").eq("conversation_id", conversationId).eq("role", "assistant").eq("reply_to_message_id", messageId).maybeSingle();
+            // Newest first: a turn can only ever expose one assistant version, and
+            // ordering (rather than a bare maybeSingle) keeps this readable even if
+            // historical rows predate that guarantee.
+            const { data, error } = await userClient.from("messages").select("id, conversation_id, role, content, reply_to_message_id, metadata, created_at").eq("conversation_id", conversationId).eq("role", "assistant").eq("reply_to_message_id", messageId).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(1).maybeSingle();
             if (error) throw new Error("CONTEXT_UNAVAILABLE");
             return data ? {
                 id: data.id,
@@ -41,14 +44,27 @@ export function createMirrorRepository(userClient: SupabaseClient, adminClient: 
             return data.reverse().map((message) => ({ role: message.role, content: message.content, createdAt: message.created_at }));
         },
         async getRecentSignals(before: string) {
+            // Bounded Mirror context only (last 8 for the reply). Formal
+            // pattern detection is historical and separate: see
+            // pattern.repository countSignals (exact head count, no limit) +
+            // getRecentSignals (last 6 per type, up to 6 types).
             const { data, error } = await userClient.from("signals").select("signal_type, value, observed_at").lte("observed_at", before).order("observed_at", { ascending: false }).limit(8);
             if (error) throw new Error("CONTEXT_UNAVAILABLE");
             return data.map((signal) => ({ signalType: signal.signal_type, value: signal.value, observedAt: signal.observed_at }));
         },
         async getPreferences() {
-            const { data, error } = await userClient.from("user_preferences").select("what_exploring, what_to_notice").maybeSingle();
+            // `language` arrives with the user_language migration. Selecting it
+            // unconditionally would throw CONTEXT_UNAVAILABLE — and so fail every
+            // Mirror turn — on a database that has not applied that migration,
+            // so a missing column degrades to "no stored choice" (English)
+            // instead of taking the whole conversation down with it.
+            const withLanguage = await userClient.from("user_preferences").select("what_exploring, what_to_notice, language").maybeSingle();
+            const { data, error } = withLanguage.error
+                ? await userClient.from("user_preferences").select("what_exploring, what_to_notice").maybeSingle()
+                : withLanguage;
             if (error) throw new Error("CONTEXT_UNAVAILABLE");
-            return { whatExploring: data?.what_exploring ?? [], whatToNotice: data?.what_to_notice ?? [] };
+            const row = data as { what_exploring?: string[] | null; what_to_notice?: string[] | null; language?: string | null } | null;
+            return { whatExploring: row?.what_exploring ?? [], whatToNotice: row?.what_to_notice ?? [], language: row?.language ?? null };
         },
         async getSupportedPatterns() {
             const { data, error } = await userClient.from("patterns").select("title, description, status, evidence_count, last_observed_at").in("status", ["supported", "possible"]).order("last_observed_at", { ascending: false }).limit(4);
@@ -80,6 +96,16 @@ export function createMirrorRepository(userClient: SupabaseClient, adminClient: 
             if (error) throw new Error("ASSISTANT_PERSISTENCE_FAILED");
             return { id: data.id, conversationId: data.conversation_id, role: "assistant" as const, content: data.content, replyToMessageId: data.reply_to_message_id, metadata: data.metadata, createdAt: data.created_at };
         },
+        /**
+         * Replace the assistant reply of a turn in place. Regeneration and the
+         * controlled safety response both use this: the user turn keeps exactly
+         * one visible assistant version (9.7), and no duplicate is ever written.
+         */
+        async replaceAssistant(input: { messageId: string; conversationId: string; content: string; responseText: string; followUp: string | null; taskVersion: string }) {
+            const { data, error } = await adminClient.from("messages").update({ content: input.content, metadata: { task_version: input.taskVersion, response_text: input.responseText, follow_up: input.followUp } }).eq("id", input.messageId).eq("role", "assistant").eq("conversation_id", input.conversationId).select("id, conversation_id, role, content, reply_to_message_id, metadata, created_at").single();
+            if (error || !data) throw new Error("ASSISTANT_PERSISTENCE_FAILED");
+            return { id: data.id, conversationId: data.conversation_id, role: "assistant" as const, content: data.content, replyToMessageId: data.reply_to_message_id, metadata: data.metadata, createdAt: data.created_at };
+        },
         async saveSignals(input: { conversationId: string; userMessageId: string; observedAt: string; signals: Array<{ signalType: string; value: Record<string, unknown>; confidence: number | null }> }) {
             const { data, error } = await adminClient.from("signals").upsert(input.signals.map((signal) => ({ user_id: userId, source_type: "conversation", source_id: input.conversationId, source_message_id: input.userMessageId, signal_type: signal.signalType, value: signal.value, confidence: signal.confidence, observed_at: input.observedAt })), { onConflict: "source_message_id,signal_type" }).select("id, signal_type, value, confidence, observed_at, source_message_id");
             if (error) throw new Error("SIGNAL_PERSISTENCE_FAILED");
@@ -88,6 +114,21 @@ export function createMirrorRepository(userClient: SupabaseClient, adminClient: 
         async claimAIRun(input: { conversationId: string; userMessageId: string; task: string }) {
             const { data, error } = await adminClient.rpc("claim_ai_run", { run_user_id: userId, run_conversation_id: input.conversationId, run_user_message_id: input.userMessageId, run_task: input.task });
             if (error || !data) {
+                if (error?.message?.includes("MIRROR_ATTEMPTS_EXHAUSTED")) throw new Error("ATTEMPTS_EXHAUSTED");
+                if (error?.message?.includes("MIRROR_RATE_LIMITED") || error?.message?.includes("MIRROR_IN_PROGRESS")) throw new Error("RATE_LIMITED");
+                throw new Error("AI_RUN_UNAVAILABLE");
+            }
+            return data as { id: string; status: string };
+        },
+        /**
+         * Claim an attempt that regenerates an already-answered turn. Bounded by
+         * the same attempt cap and rate limits as a first generation, so
+         * regeneration can never loop or flood the provider (48.3).
+         */
+        async claimRegenerationRun(input: { conversationId: string; userMessageId: string; task: string }) {
+            const { data, error } = await adminClient.rpc("regenerate_ai_run", { run_user_id: userId, run_conversation_id: input.conversationId, run_user_message_id: input.userMessageId, run_task: input.task });
+            if (error || !data) {
+                if (error?.message?.includes("NOTHING_TO_REGENERATE")) throw new Error("NOTHING_TO_REGENERATE");
                 if (error?.message?.includes("MIRROR_ATTEMPTS_EXHAUSTED")) throw new Error("ATTEMPTS_EXHAUSTED");
                 if (error?.message?.includes("MIRROR_RATE_LIMITED") || error?.message?.includes("MIRROR_IN_PROGRESS")) throw new Error("RATE_LIMITED");
                 throw new Error("AI_RUN_UNAVAILABLE");

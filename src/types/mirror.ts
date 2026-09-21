@@ -6,6 +6,7 @@ export type MirrorErrorCode =
     | "INVALID_AI_OUTPUT"
     | "RATE_LIMITED"
     | "ATTEMPTS_EXHAUSTED"
+    | "NOTHING_TO_REGENERATE"
     | "CONVERSATION_UNAVAILABLE"
     | "VOICE_UNAVAILABLE";
 

@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import type { Language } from "@/localization/languages";
 import type { Database, Json } from "@/types/database";
 
 export type AppearancePreference = "system" | "light" | "dark";
@@ -12,6 +13,10 @@ export type UserPreferences = {
     notificationsEnabled: boolean;
     notificationCategories: Record<NotificationCategoryKey, boolean>;
     quietHoursEnabled: boolean;
+    /** Explicit IANA timezone choice. Null follows the device-reported zone. */
+    timezone: string | null;
+    /** Server-side display-language choice. Null means none made yet. */
+    language: Language | null;
 };
 
 const defaults: UserPreferences = {
@@ -26,6 +31,8 @@ const defaults: UserPreferences = {
         weekly: true,
     },
     quietHoursEnabled: true,
+    timezone: null,
+    language: null,
 };
 
 type PreferencesRow = {
@@ -35,7 +42,19 @@ type PreferencesRow = {
     notifications_enabled: boolean | null;
     notification_categories: Json | null;
     quiet_hours_enabled: boolean | null;
+    timezone: string | null;
+    language: string | null;
 };
+
+const LANGUAGE_CODES: readonly Language[] = ["en", "hi", "fr", "es", "zh", "ja", "ko", "ar", "ur"];
+
+/** Select-list shared by get/update; language mirrors the new column. */
+const COLUMNS = "appearance, what_exploring, what_to_notice, notifications_enabled, notification_categories, quiet_hours_enabled, timezone, language";
+
+/** Trusts only known codes; anything else (old clients, manual edits) is null. */
+function parseLanguage(value: string | null): Language | null {
+    return value !== null && (LANGUAGE_CODES as readonly string[]).includes(value) ? (value as Language) : null;
+}
 
 function mapCategories(value: Json | null): Record<NotificationCategoryKey, boolean> {
     const source = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -55,6 +74,8 @@ function mapPreferences(row: PreferencesRow): UserPreferences {
         notificationsEnabled: row.notifications_enabled ?? defaults.notificationsEnabled,
         notificationCategories: mapCategories(row.notification_categories),
         quietHoursEnabled: row.quiet_hours_enabled ?? defaults.quietHoursEnabled,
+        timezone: row.timezone ?? null,
+        language: parseLanguage(row.language),
     };
 }
 
@@ -70,7 +91,7 @@ export const preferencesService = {
 
         const { data, error } = await supabase
             .from("user_preferences")
-            .select("appearance, what_exploring, what_to_notice, notifications_enabled, notification_categories, quiet_hours_enabled")
+            .select(COLUMNS)
             .eq("user_id", userId)
             .single();
         if (error) throw error;
@@ -88,11 +109,13 @@ export const preferencesService = {
         if (values.notificationsEnabled !== undefined) payload.notifications_enabled = values.notificationsEnabled;
         if (values.notificationCategories !== undefined) payload.notification_categories = values.notificationCategories;
         if (values.quietHoursEnabled !== undefined) payload.quiet_hours_enabled = values.quietHoursEnabled;
+        if (values.timezone !== undefined) payload.timezone = values.timezone;
+        if (values.language !== undefined) payload.language = values.language;
 
         const { data, error } = await supabase
             .from("user_preferences")
             .upsert(payload, { onConflict: "user_id" })
-            .select("appearance, what_exploring, what_to_notice, notifications_enabled, notification_categories, quiet_hours_enabled")
+            .select(COLUMNS)
             .single();
         if (error) throw error;
         return mapPreferences(data as PreferencesRow);

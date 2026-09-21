@@ -1,5 +1,4 @@
 import { View } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import Animated, {
     FadeIn,
     FadeInDown,
@@ -8,10 +7,10 @@ import Animated, {
 
 import AppLogo from "@/components/ui/AppLogo";
 import AppText from "@/components/ui/Text";
+import { copy } from "@/constants/copy";
 export default function SplashScreen() {
     return (
         <View className="flex-1 items-center justify-center bg-background">
-            <StatusBar style="dark" />
 
             <View className="items-center">
                 {/* Logo */}
@@ -33,7 +32,7 @@ export default function SplashScreen() {
                         variant="display"
                         className="-mt-4 font-satoshi-medium"
                     >
-                        Aks.ai
+                        {copy.splash.appName}
                     </AppText>
                 </Animated.View>
 
@@ -47,7 +46,7 @@ export default function SplashScreen() {
                         variant="body"
                         className="mt-2 text-center"
                     >
-                        Understand yourself, differently.
+                        {copy.splash.subtitle}
                     </AppText>
                 </Animated.View>
             </View>

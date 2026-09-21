@@ -154,7 +154,9 @@ export const permissionManager = {
                     : { ...base, state: "not_connected", permissionState: "not_determined", canRequest: true, canRevoke: false };
             }
             default:
-                return { ...base, state: "permission_required", permissionState: "not_determined", canRequest: true, canRevoke: false };
+                // Removed sources are deleted from the registry; anything
+                // unexpected is never requestable.
+                return { ...base, state: "not_available", permissionState: "unavailable", canRequest: false, canRevoke: false };
         }
     },
 

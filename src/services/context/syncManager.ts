@@ -3,6 +3,7 @@ import { requireAuthenticatedUser, throwDataError } from "@/repositories/data.re
 import { sourceAdapters, type ProviderAdapter } from "./adapters";
 import { OAUTH_SOURCE_NAMES } from "./oauth";
 import type { ContextSourceType, ObservationDraft } from "./types";
+import { copy } from "@/constants/copy";
 
 /**
  * SyncManager — the controlled sync lifecycle for every provider.
@@ -35,7 +36,6 @@ const MIN_SYNC_INTERVAL_MINUTES: Partial<Record<ContextSourceType, number>> = {
     email: 180,
     notion: 360,
     screen_time: 720,
-    photos: 10080,
 };
 
 export type SyncOutcome = {
@@ -95,7 +95,7 @@ export const syncManager = {
             .from("user_data_sources")
             .select("source_type, status, last_synced_at")
             .eq("user_id", user.id);
-        if (error) throwDataError(error, "We couldn't load your connected sources.");
+        if (error) throwDataError(error, copy.errors.connectedSources);
         const connected = (sources ?? []).filter((source: { status: string }) => source.status === "connected");
 
         const outcomes: SyncOutcome[] = [];

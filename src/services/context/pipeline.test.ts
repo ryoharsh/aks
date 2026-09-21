@@ -9,6 +9,7 @@ vi.mock("@/lib/supabase", () => ({
     supabase: { rpc: vi.fn(), from: vi.fn() },
     isSupabaseConfigured: true,
     supabaseUrl: "https://placeholder.supabase.co",
+    assertSupabaseConfigured: () => undefined,
 }));
 vi.mock("@/repositories/data.repository", () => ({
     requireAuthenticatedUser: vi.fn().mockResolvedValue({ id: "user-a" }),
@@ -40,11 +41,11 @@ describe("provider registration & lifecycle", () => {
         }
     });
 
-    it("keeps restricted sources unrequestable through the permission manager", async () => {
-        for (const source of ["calls", "messages", "notifications_source"] as const) {
-            const status = await permissionManager.getStatus(source);
-            expect(status.canRequest).toBe(false);
-            expect(status.state).toBe("not_available");
+    it("contains no removed sources in the registry", async () => {
+        const { SOURCE_DEFINITIONS, CONNECTABLE_SOURCES } = await import("./types");
+        for (const removed of ["calls", "messages", "notifications_source", "contacts", "photos", "health", "app_activity"]) {
+            expect(Object.keys(SOURCE_DEFINITIONS)).not.toContain(removed);
+            expect(CONNECTABLE_SOURCES as readonly string[]).not.toContain(removed);
         }
     });
 

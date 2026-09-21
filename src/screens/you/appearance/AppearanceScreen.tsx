@@ -24,7 +24,8 @@ import type { YouStackParamList } from "@/navigation/routes";
 import { cn } from "@/lib/cn";
 import { useResolveClassNames } from "uniwind";
 import { usePreferences } from "@/providers/PreferencesProvider";
-import { Alert } from "react-native";
+import { useBottomSheet } from "@/components/ui/BottomSheetProvider";
+import { copy } from "@/constants/copy";
 
 type Props = NativeStackScreenProps<YouStackParamList, "Appearance">;
 
@@ -38,26 +39,27 @@ type ThemeOption = {
 const themeOptions: ThemeOption[] = [
     {
         id: "system",
-        title: "System",
-        description: "Follow your device appearance.",
+        title: copy.appearance.themes.systemTitle,
+        description: copy.appearance.themes.systemDescription,
         icon: ComputerIcon,
     },
     {
         id: "light",
-        title: "Light",
-        description: "Keep Aks bright and clear.",
+        title: copy.appearance.themes.lightTitle,
+        description: copy.appearance.themes.lightDescription,
         icon: Sun03Icon,
     },
     {
         id: "dark",
-        title: "Dark",
-        description: "A softer experience in low light.",
+        title: copy.appearance.themes.darkTitle,
+        description: copy.appearance.themes.darkDescription,
         icon: Moon02Icon,
     },
 ];
 
 export default function AppearanceScreen({ navigation }: Props) {
     const { preferences, updatePreferences } = usePreferences();
+    const { notice } = useBottomSheet();
     const [selectedTheme, setSelectedTheme] = useState<ThemeOption["id"]>(preferences.appearance);
     const [saving, setSaving] = useState(false);
 
@@ -75,7 +77,7 @@ export default function AppearanceScreen({ navigation }: Props) {
             await updatePreferences({ appearance: mode });
         } catch {
             setSelectedTheme(previous);
-            Alert.alert("Unable to save appearance", "Check your connection and try again.");
+            notice(copy.appearance.notices.unableToSave, copy.common.checkConnection);
         } finally {
             setSaving(false);
         }
@@ -102,7 +104,7 @@ export default function AppearanceScreen({ navigation }: Props) {
                     variant="title"
                     className="text-text-high"
                 >
-                    Appearance
+                    {copy.appearance.header}
                 </AppText>
             </Animated.View>
 
@@ -118,21 +120,21 @@ export default function AppearanceScreen({ navigation }: Props) {
                         variant="caption"
                         className="mb-2 tracking-[1.5px] text-text-low"
                     >
-                        YOUR EXPERIENCE
+                        {copy.appearance.eyebrow}
                     </AppText>
 
                     <AppText
                         variant="display"
                         className="text-text-high"
                     >
-                        Make it feel like yours.
+                        {copy.appearance.title}
                     </AppText>
 
                     <AppText
                         variant="body"
                         className="mt-3 leading-6 text-text-low"
                     >
-                        Choose how Aks looks throughout the app.
+                        {copy.appearance.description}
                     </AppText>
                 </Animated.View>
 
@@ -144,7 +146,7 @@ export default function AppearanceScreen({ navigation }: Props) {
                         variant="caption"
                         className="mb-3 tracking-[1.5px] text-text-low"
                     >
-                        THEME
+                        {copy.appearance.themeSection}
                     </AppText>
 
                     <View className="overflow-hidden rounded-[28px] border border-border bg-surface">
@@ -213,15 +215,14 @@ export default function AppearanceScreen({ navigation }: Props) {
                         variant="caption"
                         className="tracking-[1.5px] text-text-low"
                     >
-                        A NOTE FROM AKS
+                        {copy.appearance.noteCaption}
                     </AppText>
 
                     <AppText
                         variant="body"
                         className="mt-3 leading-6 text-text-low"
                     >
-                        Appearance only changes how Aks looks. Your data,
-                        insights, and experiments stay exactly the same.
+                        {copy.appearance.noteBody}
                     </AppText>
                 </Animated.View>
             </ScrollView>

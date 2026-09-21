@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/types/database";
 import type { Insight, Page, PageOptions } from "@/types/data";
+import { copy } from "@/constants/copy";
 import { requireAuthenticatedUser, throwDataError } from "./data.repository";
 import { pageRange } from "./pagination";
 
@@ -10,7 +11,7 @@ const mapInsight = (row: Row): Insight => ({ id: row.id, type: row.type, title: 
 async function mutate(functionName: "mark_insight_seen" | "dismiss_insight" | "archive_insight" | "delete_insight", id: string) {
     await requireAuthenticatedUser();
     const { error } = await supabase.rpc(functionName, { target_insight_id: id });
-    if (error) throwDataError(error, "We couldn't update this insight.");
+    if (error) throwDataError(error, copy.errors.writes.insightUpdate);
 }
 
 export const insightsRepository = {

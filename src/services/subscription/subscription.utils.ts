@@ -156,6 +156,42 @@ export function deriveSubscriptionState(
     };
 }
 
+/**
+ * App-wide access rule (single global layer — no per-feature gating).
+ * `isActive` already encodes "trial active OR paid subscription active":
+ * RevenueCat reports an active trial through the same `premium` entitlement,
+ * and a cancelled-but-still-valid entitlement stays `isActive` until expiry.
+ */
+export function hasSubscriptionAccess(state: SubscriptionState): boolean {
+    return state.isActive;
+}
+
+/**
+ * Whether the subscription state has resolved enough to make an access
+ * decision. While unknown/loading the app must wait (splash), never guess.
+ */
+export function isSubscriptionPending(state: SubscriptionState): boolean {
+    return state.status === "unknown" || state.status === "loading";
+}
+
+/**
+ * Whether the user must be routed to the Subscription screen.
+ * Only definitive inactive states gate: `free` (never subscribed / trial
+ * never started) and `expired` (trial or subscription lapsed).
+ * `unavailable` (billing not configured on this device/build) and `error`
+ * (transient store failure) fail open to the main app so a misconfigured
+ * dev build or offline launch can never brick the app; protected backend
+ * operations still verify the subscription server-side.
+ */
+export function requiresSubscriptionScreen(
+    state: SubscriptionState,
+): boolean {
+    if (state.isActive) {
+        return false;
+    }
+    return state.status === "free" || state.status === "expired";
+}
+
 export function isPurchaseCancelledError(error: unknown): boolean {
     if (error instanceof SubscriptionError) {
         return error.type === "PURCHASE_CANCELLED";

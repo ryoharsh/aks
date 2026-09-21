@@ -5,7 +5,6 @@ import {
     TextInput,
     View,
 } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Animated, {
     FadeIn,
@@ -24,6 +23,7 @@ import { useResolveClassNames } from "uniwind";
 import AppText from "@/components/ui/Text";
 import IconButton from "@/components/ui/IconButton";
 import type { HelpFeedbackStackParamList } from "@/navigation/routes";
+import { copy } from "@/constants/copy";
 
 type Props = NativeStackScreenProps<
     HelpFeedbackStackParamList,
@@ -35,33 +35,7 @@ type FAQItem = {
     answer: string;
 };
 
-const FAQ_ITEMS: FAQItem[] = [
-    {
-        question: "How does Aks discover patterns?",
-        answer:
-            "Aks looks for useful connections in the information and reflections you choose to share.",
-    },
-    {
-        question: "Can I control what data Aks uses?",
-        answer:
-            "Yes. You can review your information and manage available permissions from Your data and Privacy.",
-    },
-    {
-        question: "How do experiments work?",
-        answer:
-            "Experiments help you test small changes and reflect on what affects your focus, energy, sleep, and routines.",
-    },
-    {
-        question: "Can I change notification settings?",
-        answer:
-            "Yes. Open Notifications from the You page to choose when Aks should reach out.",
-    },
-    {
-        question: "Is Aks medical advice?",
-        answer:
-            "No. Aks supports personal reflection and does not replace professional medical or mental-health advice.",
-    },
-];
+const FAQ_ITEMS: readonly FAQItem[] = copy.faq.items;
 
 export default function FAQScreen({ navigation }: Props) {
     const [query, setQuery] = useState("");
@@ -70,6 +44,7 @@ export default function FAQScreen({ navigation }: Props) {
     const textLow = useResolveClassNames("text-text-low");
     const border = useResolveClassNames("border-border");
     const surface = useResolveClassNames("bg-surface");
+    const primaryForeground = useResolveClassNames("text-primary-foreground");
 
     const filteredItems = useMemo(() => {
         const normalizedQuery = query.trim().toLowerCase();
@@ -87,7 +62,6 @@ export default function FAQScreen({ navigation }: Props) {
 
     return (
         <View className="flex-1 bg-background">
-            <StatusBar style="dark" />
 
             <Animated.View
                 entering={FadeIn.duration(400)}
@@ -110,7 +84,7 @@ export default function FAQScreen({ navigation }: Props) {
                         variant="title"
                         className="text-text-high"
                     >
-                        Help & feedback
+                        {copy.faq.header}
                     </AppText>
                 </View>
             </Animated.View>
@@ -130,15 +104,14 @@ export default function FAQScreen({ navigation }: Props) {
                         variant="display"
                         className="font-satoshi-medium text-text-high"
                     >
-                        Frequently asked questions
+                        {copy.faq.title}
                     </AppText>
 
                     <AppText
                         variant="body"
                         className="mt-3 max-w-[330px] text-text-low"
                     >
-                        Find quick answers about how Aks works and
-                        how your data is handled.
+                        {copy.faq.description}
                     </AppText>
                 </Animated.View>
 
@@ -161,7 +134,7 @@ export default function FAQScreen({ navigation }: Props) {
                         <TextInput
                             value={query}
                             onChangeText={setQuery}
-                            placeholder="Search questions"
+                            placeholder={copy.faq.searchPlaceholder}
                             placeholderTextColor="#A3A3A3"
                             autoCapitalize="none"
                             autoCorrect={false}
@@ -178,7 +151,7 @@ export default function FAQScreen({ navigation }: Props) {
                                     variant="caption"
                                     className="text-text-medium"
                                 >
-                                    Clear
+                                    {copy.faq.clearSearch}
                                 </AppText>
                             </Pressable>
                         ) : null}
@@ -197,8 +170,8 @@ export default function FAQScreen({ navigation }: Props) {
                             className="text-[10px] tracking-[1.8px] text-text-low"
                         >
                             {query.trim()
-                                ? `${filteredItems.length} RESULTS`
-                                : "POPULAR QUESTIONS"}
+                                ? copy.faq.resultsCount(filteredItems.length)
+                                : copy.faq.popularSection}
                         </AppText>
 
                         {!query.trim() ? (
@@ -206,7 +179,7 @@ export default function FAQScreen({ navigation }: Props) {
                                 variant="caption"
                                 className="text-text-disabled"
                             >
-                                {FAQ_ITEMS.length} questions
+                                {copy.faq.questionsCount(FAQ_ITEMS.length)}
                             </AppText>
                         ) : null}
                     </View>
@@ -250,7 +223,7 @@ export default function FAQScreen({ navigation }: Props) {
                                                 size={17}
                                                 color={
                                                     expanded
-                                                        ? "#FFFFFF"
+                                                        ? primaryForeground.color
                                                         : textLow.color
                                                 }
                                             />
@@ -295,15 +268,14 @@ export default function FAQScreen({ navigation }: Props) {
                                     variant="title"
                                     className="text-center text-text-high"
                                 >
-                                    Nothing matched
+                                    {copy.faq.emptyTitle}
                                 </AppText>
 
                                 <AppText
                                     variant="body"
                                     className="mt-2 max-w-[260px] text-center text-text-low"
                                 >
-                                    Try another search term or browse
-                                    the questions above.
+                                    {copy.faq.emptyBody}
                                 </AppText>
 
                                 <Pressable
@@ -314,7 +286,7 @@ export default function FAQScreen({ navigation }: Props) {
                                         variant="button"
                                         className="text-text-high"
                                     >
-                                        Clear search
+                                        {copy.faq.clearAction}
                                     </AppText>
                                 </Pressable>
                             </View>
@@ -333,15 +305,14 @@ export default function FAQScreen({ navigation }: Props) {
                             variant="title"
                             className="text-text-high"
                         >
-                            Still need help?
+                            {copy.faq.helpTitle}
                         </AppText>
 
                         <AppText
                             variant="body"
                             className="mt-2 text-text-low"
                         >
-                            Tell us what's going on and we'll help you
-                            figure it out.
+                            {copy.faq.helpBody}
                         </AppText>
 
                         <Pressable
@@ -356,7 +327,7 @@ export default function FAQScreen({ navigation }: Props) {
                                 variant="button"
                                 className="text-primary-foreground"
                             >
-                                Get in touch
+                                {copy.faq.contactAction}
                             </AppText>
                         </Pressable>
                     </View>

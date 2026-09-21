@@ -1,6 +1,13 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, SectionList, View } from "react-native";
-import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
+import Animated, {
+    Easing,
+    FadeIn,
+    FadeInUp,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming,
+} from "react-native-reanimated";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react-native";
 import {
     ArrowRight01Icon,
@@ -18,6 +25,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import AppText from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
+import { copy } from "@/constants/copy";
 import { navigationBus } from "@/services/navigationBus";
 import {
     curateTimelineEntries,
@@ -43,28 +51,28 @@ const entryIcons: Record<TimelineEntry["type"], IconSvgElement> = {
 
 const emptyCopy: Record<TimelineFilter, { title: string; description: string }> = {
     All: {
-        title: "Your story is still unfolding.",
-        description: "As you talk with Aks, meaningful moments, patterns, experiments, and learnings will appear here.",
+        title: copy.timeline.empty.allTitle,
+        description: copy.timeline.empty.allBody,
     },
     Insights: {
-        title: "No insights yet.",
-        description: "Meaningful insights will appear here as Aks sees enough evidence over time.",
+        title: copy.timeline.empty.insightsTitle,
+        description: copy.timeline.empty.insightsBody,
     },
     Experiments: {
-        title: "No experiments yet.",
-        description: "Experiments you set up will appear here as you run them.",
+        title: copy.timeline.empty.experimentsTitle,
+        description: copy.timeline.empty.experimentsBody,
     },
     "Check-ins": {
-        title: "No check-ins yet.",
-        description: "Your meaningful check-ins will appear here.",
+        title: copy.timeline.empty.checkInsTitle,
+        description: copy.timeline.empty.checkInsBody,
     },
     Decisions: {
-        title: "No decisions yet.",
-        description: "Decisions and patterns Aks notices will appear here as they take shape.",
+        title: copy.timeline.empty.decisionsTitle,
+        description: copy.timeline.empty.decisionsBody,
     },
     Learnings: {
-        title: "No learnings yet.",
-        description: "New learnings will appear here as your story becomes clearer.",
+        title: copy.timeline.empty.learningsTitle,
+        description: copy.timeline.empty.learningsBody,
     },
 };
 
@@ -91,7 +99,24 @@ export default function TimelineScreen({ shouldEnter, onFilterGestureChange }: T
     const mediumColor = useResolveClassNames("text-text-medium").color;
     const entries = useMemo(() => curateTimelineEntries(timeline.items), [timeline.items]);
     const sections = useMemo(() => groupTimelineEntries(entries), [entries]);
-    const copy = emptyCopy[selectedFilter];
+    const emptyState = emptyCopy[selectedFilter];
+
+    const enteredRef = useRef(false);
+    const enterProgress = useSharedValue(0);
+    const enterStyle = useAnimatedStyle(() => ({
+        opacity: enterProgress.value,
+        transform: [{ translateY: (1 - enterProgress.value) * 10 }],
+    }));
+
+    useEffect(() => {
+        if (shouldEnter && !enteredRef.current) {
+            enteredRef.current = true;
+            enterProgress.value = withTiming(1, {
+                duration: 400,
+                easing: Easing.out(Easing.cubic),
+            });
+        }
+    }, [shouldEnter, enterProgress]);
 
     const handleLoadMore = () => {
         if (timeline.hasMore && !timeline.loadingMore) void timeline.loadMore();
@@ -103,15 +128,15 @@ export default function TimelineScreen({ shouldEnter, onFilterGestureChange }: T
     };
 
     return (
-        <View pointerEvents={shouldEnter ? "auto" : "none"} style={{ opacity: shouldEnter ? 1 : 0 }} className="flex-1 bg-background">
-            <Animated.View key={shouldEnter ? "page-opened" : "page-waiting"} entering={shouldEnter ? FadeInUp.duration(400) : undefined} className="flex-1">
+        <View pointerEvents={shouldEnter ? "auto" : "none"} className="flex-1 bg-background">
+            <Animated.View style={enterStyle} className="flex-1">
                 {timeline.error ? (
                     <View className="flex-1 items-center justify-center px-6">
                         <View className="w-full rounded-[28px] border border-border bg-surface p-5">
-                            <AppText variant="title" className="text-text-high">Couldn't load your timeline.</AppText>
-                            <AppText className="mt-3 text-text-low">Your story is still here. Try again in a moment.</AppText>
+                            <AppText variant="title" className="text-text-high">{copy.timeline.errorTitle}</AppText>
+                            <AppText className="mt-3 text-text-low">{copy.timeline.errorBody}</AppText>
                             <Button variant="secondary" onPress={() => void timeline.refresh()} className="mt-5">
-                                <AppText variant="button" className="text-text-high">Try again</AppText>
+                                <AppText variant="button" className="text-text-high">{copy.common.tryAgain}</AppText>
                             </Button>
                         </View>
                     </View>
@@ -122,8 +147,8 @@ export default function TimelineScreen({ shouldEnter, onFilterGestureChange }: T
                         renderItem={({ item, index }) => <TimelineEntryCard entry={item} index={index} onPress={() => handleEntryPress(item)} />}
                         renderSectionHeader={({ section }) => <AppText variant="caption" className="bg-background pb-3 pt-7 tracking-[1.5px] text-text-low">{section.title.toUpperCase()}</AppText>}
                         ListHeaderComponent={<TimelineHeader selectedFilter={selectedFilter} onFilterChange={setSelectedFilter} onFilterGestureChange={onFilterGestureChange} />}
-                        ListEmptyComponent={timeline.loading ? <TimelineSkeleton /> : <View className="mt-8 rounded-[28px] border border-border bg-surface p-5"><AppText variant="title" className="text-text-high">{copy.title}</AppText><AppText className="mt-3 leading-6 text-text-low">{copy.description}</AppText></View>}
-                        ListFooterComponent={timeline.hasMore || timeline.loadMoreError ? <View className="items-center py-6">{timeline.loadingMore ? <TimelineSkeleton compact /> : timeline.loadMoreError ? <AppText variant="caption" className="text-red-600">Couldn't load more of your story.</AppText> : null}</View> : null}
+                        ListEmptyComponent={timeline.loading ? <TimelineSkeleton /> : <View className="mt-8 rounded-[28px] border border-border bg-surface p-5"><AppText variant="title" className="text-text-high">{emptyState.title}</AppText><AppText className="mt-3 leading-6 text-text-low">{emptyState.description}</AppText></View>}
+                        ListFooterComponent={timeline.hasMore || timeline.loadMoreError ? <View className="items-center py-6">{timeline.loadingMore ? <TimelineSkeleton compact /> : timeline.loadMoreError ? <AppText variant="caption" className="text-red-600">{copy.timeline.loadMoreError}</AppText> : null}</View> : null}
                         onEndReached={handleLoadMore}
                         onEndReachedThreshold={0.4}
                         showsVerticalScrollIndicator={false}
@@ -144,13 +169,13 @@ function TimelineHeader({ selectedFilter, onFilterChange, onFilterGestureChange 
     return (
         <>
             <Animated.View entering={FadeIn.duration(350)} className="pt-8">
-                <AppText variant="title" className="text-[18px] text-text-high">Timeline</AppText>
-                <AppText variant="caption" className="mt-1 text-text-low">Your journey with Aks, over time.</AppText>
+                <AppText variant="title" className="text-[18px] text-text-high">{copy.timeline.header}</AppText>
+                <AppText variant="caption" className="mt-1 text-text-low">{copy.timeline.headerCaption}</AppText>
             </Animated.View>
             <Animated.View entering={FadeInUp.duration(450).delay(80)} className="mt-8">
-                <AppText variant="caption" className="mb-2 tracking-[1.5px] text-text-low">YOUR JOURNEY</AppText>
-                <AppText variant="display" className="text-text-high">Your story, as it unfolds.</AppText>
-                <AppText className="mt-3 leading-6 text-text-low">See the moments, patterns, experiments, and learnings that shaped your journey with Aks.</AppText>
+                <AppText variant="caption" className="mb-2 tracking-[1.5px] text-text-low">{copy.timeline.eyebrow}</AppText>
+                <AppText variant="display" className="text-text-high">{copy.timeline.title}</AppText>
+                <AppText className="mt-3 leading-6 text-text-low">{copy.timeline.description}</AppText>
             </Animated.View>
             <View className="relative">
                 <Animated.ScrollView horizontal nestedScrollEnabled directionalLockEnabled showsHorizontalScrollIndicator={false} onTouchStart={() => onFilterGestureChange?.(false)} onTouchEnd={() => onFilterGestureChange?.(true)} onMomentumScrollEnd={() => onFilterGestureChange?.(true)} onScrollEndDrag={() => onFilterGestureChange?.(true)} contentContainerClassName="pr-5" className="-mx-5 mt-7 px-5">

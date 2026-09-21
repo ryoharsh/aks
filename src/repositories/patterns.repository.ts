@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/types/database";
 import type { Page, PageOptions, Pattern, PatternEvidence } from "@/types/data";
+import { copy } from "@/constants/copy";
 import { requireAuthenticatedUser, throwDataError } from "./data.repository";
 import { pageRange } from "./pagination";
 
@@ -43,11 +44,11 @@ export const patternsRepository = {
     async archive(id: string) {
         await requireAuthenticatedUser();
         const { data, error } = await supabase.rpc("archive_pattern", { target_pattern_id: id });
-        if (error || !data) throwDataError(error, "We couldn't archive this pattern.");
+        if (error || !data) throwDataError(error, copy.errors.writes.archivePattern);
     },
     async delete(id: string) {
         await requireAuthenticatedUser();
         const { data, error } = await supabase.rpc("delete_pattern", { target_pattern_id: id });
-        if (error || !data) throwDataError(error, "We couldn't remove this pattern.");
+        if (error || !data) throwDataError(error, copy.errors.writes.removePattern);
     },
 };

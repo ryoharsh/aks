@@ -12,14 +12,26 @@ import { AppState } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
 import { subscriptionService } from "@/services/subscription/subscription.service";
 import { normalizeSubscriptionError } from "@/services/subscription/subscription.utils";
+import { SUBSCRIPTIONS_ENABLED } from "@/services/subscription/subscription.constants";
 import {
     type SubscriptionOption,
     type SubscriptionState,
+    type SubscriptionStatus,
 } from "@/services/subscription/subscription.types";
 
 const EMPTY_STATE: SubscriptionState = {
     status: "unknown",
     isActive: false,
+    options: [],
+    offeringIdentifier: null,
+    plan: null,
+};
+
+// Reported while subscriptions are disabled: the app runs without
+// limitations and RevenueCat is never contacted.
+const DISABLED_ACTIVE_STATE: SubscriptionState = {
+    status: "active",
+    isActive: true,
     options: [],
     offeringIdentifier: null,
     plan: null,
@@ -31,6 +43,14 @@ export type SubscriptionContextValue = {
     state: SubscriptionState;
     busy: boolean;
     notice: string | null;
+    /** Current RevenueCat-derived status (`premium` entitlement). */
+    status: SubscriptionStatus;
+    /** Trial active OR paid subscription active. The app-wide access flag. */
+    isActive: boolean;
+    /** True while the entitlement state has not resolved yet. */
+    isLoading: boolean;
+    /** Non-null only when `status === "error"`. */
+    error: string | null;
     purchase: (option: SubscriptionOption) => Promise<void>;
     restore: () => Promise<void>;
     manage: () => Promise<void>;
@@ -53,6 +73,10 @@ export function SubscriptionProvider({ children }: PropsWithChildren) {
     const refresh = useCallback(async () => {
         const userId = userIdRef.current;
         if (!userId) {
+            return;
+        }
+        if (!SUBSCRIPTIONS_ENABLED) {
+            setState(DISABLED_ACTIVE_STATE);
             return;
         }
         try {
@@ -86,18 +110,36 @@ export function SubscriptionProvider({ children }: PropsWithChildren) {
             return;
         }
         userIdRef.current = userId;
+        if (!SUBSCRIPTIONS_ENABLED) {
+            setState(DISABLED_ACTIVE_STATE);
+            setNotice(null);
+            return;
+        }
         setState((prev) =>
             prev.status === "unknown" ? { ...prev, status: "loading" } : prev,
         );
         let active = true;
+        let unsubscribe: (() => void) | null = null;
         void (async () => {
             try {
                 await subscriptionService.initialize(userId);
                 const next = await subscriptionService.fetchState();
-                if (active) {
-                    setState(next);
-                    setNotice(null);
+                if (!active) {
+                    return;
                 }
+                setState(next);
+                setNotice(null);
+                // Live updates: purchase, restore, renewal, cancellation and
+                // expiration refresh state immediately. Guarded by user id so
+                // a stale event can never leak into another account.
+                unsubscribe = subscriptionService.addCustomerInfoListener(
+                    () => {
+                        if (userIdRef.current !== userId) {
+                            return;
+                        }
+                        void refresh();
+                    },
+                );
             } catch (error) {
                 if (active) {
                     const normalized = normalizeSubscriptionError(error);
@@ -113,8 +155,9 @@ export function SubscriptionProvider({ children }: PropsWithChildren) {
         })();
         return () => {
             active = false;
+            unsubscribe?.();
         };
-    }, [authLoading, user?.id]);
+    }, [authLoading, user?.id, refresh]);
 
     useEffect(() => {
         const subscription = AppState.addEventListener("change", (nextState) => {
@@ -133,6 +176,15 @@ export function SubscriptionProvider({ children }: PropsWithChildren) {
         try {
             const next = await subscriptionService.purchase(option);
             setState(next);
+            if (!next.isActive) {
+                // The store finished checkout but RevenueCat reports no active
+                // entitlement. Without this notice the screen silently returns
+                // to the plans list. The common cause is an emulator Test
+                // Store purchase, which never reaches the account — those need
+                // a device/emulator with the Play Store. Otherwise it can be
+                // propagation delay, covered by the live listener + restore.
+                setNotice("Checkout finished, but Premium isn't active on your account yet. Emulator Test Store purchases don't activate Premium — use a device with the Play Store. Otherwise wait a moment, then try Restore purchases.");
+            }
         } catch (error) {
             setNotice(normalizeSubscriptionError(error).message);
         } finally {
@@ -167,18 +219,40 @@ export function SubscriptionProvider({ children }: PropsWithChildren) {
 
     const clearNotice = useCallback(() => setNotice(null), []);
 
+    const status = state.status;
+    const isActive = state.isActive;
+    const isLoading = status === "unknown" || status === "loading";
+    const error = status === "error" ? notice : null;
+
     const value = useMemo<SubscriptionContextValue>(
         () => ({
             state,
             busy,
             notice,
+            status,
+            isActive,
+            isLoading,
+            error,
             purchase,
             restore,
             manage,
             refresh,
             clearNotice,
         }),
-        [state, busy, notice, purchase, restore, manage, refresh, clearNotice],
+        [
+            state,
+            busy,
+            notice,
+            status,
+            isActive,
+            isLoading,
+            error,
+            purchase,
+            restore,
+            manage,
+            refresh,
+            clearNotice,
+        ],
     );
 
     return (

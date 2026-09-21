@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState, } from "react";
-import { Alert, Pressable, TextInput, } from "react-native";
+import { Pressable, TextInput, } from "react-native";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { ArrowUp01Icon, Cancel01Icon, CommandIcon, Menu01Icon, Mic01Icon, StopIcon, VolumeHighIcon, VolumeOffIcon, XIcon, } from "@hugeicons/core-free-icons";
+import { ArrowUp01Icon, Cancel01Icon, CommandIcon, Mic01Icon, StopIcon, VolumeHighIcon, VolumeOffIcon, XIcon, } from "@hugeicons/core-free-icons";
 import { useResolveClassNames } from "uniwind";
 import Animated, {
     cancelAnimation,
@@ -13,15 +13,18 @@ import Animated, {
     LinearTransition,
     useAnimatedStyle,
     useSharedValue,
-    withRepeat,
     withSpring,
     withTiming,
 } from "react-native-reanimated";
 
 import { cn } from "@/lib/cn";
+import { startPulse } from "@/lib/motion";
 import AppText from "@/components/ui/Text";
 import IconButton from "@/components/ui/IconButton";
+import { copy } from "@/constants/copy";
+import { useAuth } from "@/hooks/useAuth";
 import { useMirror } from "@/hooks/useMirror";
+import { draftService } from "@/services/draft.service";
 import { AksMotionHandle } from "@/screens/mirror/AiConversationScreen";
 
 export default function MirrorConversationBottomBar({
@@ -33,9 +36,36 @@ export default function MirrorConversationBottomBar({
 }) {
     const [inputVisible, setInputVisible] = useState(false);
     const [message, setMessage] = useState("");
-    const [menuOpen, setMenuOpen] = useState(false);
+
+    const { user } = useAuth();
+    const userId = user?.id ?? null;
+    const draftScope = mirror.conversationId ?? "mirror-new";
+    const draftHydrated = useRef(false);
 
     const inputRef = useRef<TextInput>(null);
+
+    // Keep an unsent draft on this device across navigation and restarts, then
+    // drop it as soon as it is sent or the composer is cleared.
+    useEffect(() => {
+        draftHydrated.current = false;
+        if (!userId) {
+            setMessage("");
+            return;
+        }
+        let active = true;
+        void draftService.get(userId, draftScope).then((saved) => {
+            if (!active) return;
+            // Never clobber something the user started typing meanwhile.
+            setMessage((current) => (current ? current : saved));
+            draftHydrated.current = true;
+        });
+        return () => { active = false; };
+    }, [draftScope, userId]);
+
+    useEffect(() => {
+        if (!userId || !draftHydrated.current) return;
+        void draftService.set(userId, draftScope, message);
+    }, [draftScope, message, userId]);
 
     const barProgress = useSharedValue(0);
     const voicePulse = useSharedValue(1);
@@ -43,6 +73,7 @@ export default function MirrorConversationBottomBar({
 
     const high = useResolveClassNames("text-text-high");
     const low = useResolveClassNames("text-text-low");
+    const primaryForeground = useResolveClassNames("text-primary-foreground").color;
 
     useEffect(() => {
         barProgress.value = withTiming(1, {
@@ -52,14 +83,7 @@ export default function MirrorConversationBottomBar({
 
     useEffect(() => {
         if (mirror.voiceActive) {
-            voicePulse.value = withRepeat(
-                withTiming(1.08, {
-                    duration: 900,
-                    easing: undefined,
-                }),
-                -1,
-                true,
-            );
+            startPulse(voicePulse, 1.08, 900);
         } else {
             cancelAnimation(voicePulse);
             voicePulse.value = withSpring(1, {
@@ -127,31 +151,37 @@ export default function MirrorConversationBottomBar({
         [motionRef],
     );
 
-    const handleSend = useCallback(async () => {
+    const handleSend = useCallback(() => {
         const value = message.trim();
 
         if (!value || mirror.processing || mirror.loading) {
             return;
         }
 
+        // The conversation id is only assigned once the first message is saved,
+        // so remember which draft key this text lives under before sending.
+        const scopeAtSend = mirror.conversationId ?? "mirror-new";
+
+        // Clear instantly: the message renders optimistically in the
+        // conversation and the Aks request starts immediately.
+        setMessage("");
+        setInputVisible(false);
+        if (user) void draftService.clear(user.id, scopeAtSend).catch(() => undefined);
+
         motionRef.current?.conversation("send");
 
-        try {
-            await mirror.sendMessage(value);
+        void (async () => {
+            try {
+                await mirror.sendMessage(value);
 
-            setMessage("");
-            setInputVisible(false);
-
-            motionRef.current?.conversation("responseStart");
-        } catch {
-            motionRef.current?.conversation("cancel");
-
-            Alert.alert(
-                "Unable to send message",
-                "Your message is still here. Check your connection and try again.",
-            );
-        }
-    }, [message, mirror, motionRef]);
+                motionRef.current?.conversation("responseStart");
+            } catch {
+                // The sent message stays visible in the conversation next to
+                // the existing retry/error state — nothing is lost.
+                motionRef.current?.conversation("cancel");
+            }
+        })();
+    }, [message, mirror, motionRef, user]);
 
     const startVoice = useCallback(() => {
         motionRef.current?.conversation("speechStart");
@@ -194,21 +224,14 @@ export default function MirrorConversationBottomBar({
 
     const toggleInput = useCallback(() => {
         setInputVisible((visible) => !visible);
-        setMenuOpen(false);
     }, []);
 
     const cancelInput = useCallback(() => {
         setInputVisible(false);
-        setMenuOpen(false);
         setMessage("");
 
         motionRef.current?.conversation("cancel");
     }, [motionRef]);
-
-    const toggleMenu = useCallback(() => {
-        setMenuOpen((open) => !open);
-        setInputVisible(false);
-    }, []);
 
     const hasMessage = Boolean(message.trim());
 
@@ -217,47 +240,6 @@ export default function MirrorConversationBottomBar({
             style={barStyle}
             className="px-5 pb-8 flex flex-col"
         >
-            {menuOpen ? (
-                <Animated.View
-                    entering={FadeInDown.duration(260)}
-                    exiting={FadeOutDown.duration(180)}
-                    layout={LinearTransition.springify()
-                        .damping(18)
-                        .stiffness(170)}
-                    className="z-10 mb-2 ms-35 me-5 min-w-52 overflow-hidden rounded-2xl bg-surface/60"
-                >
-                    <Pressable
-                        onPress={() => {
-                            if (mirror.voiceActive) {
-                                void mirror.stopVoiceConversation();
-                            }
-
-                            mirror.startNewConversation();
-
-                            setMenuOpen(false);
-                            setMessage("");
-                            setInputVisible(false);
-
-                            motionRef.current?.conversation(
-                                "inputEnd",
-                            );
-                        }}
-                        disabled={
-                            mirror.processing ||
-                            mirror.loading
-                        }
-                        className="px-5 py-2.5"
-                    >
-                        <AppText
-                            variant="body"
-                            className="text-text-high"
-                        >
-                            New conversation
-                        </AppText>
-                    </Pressable>
-                </Animated.View>
-            ) : null}
-
             {inputVisible ? (
                 <Animated.View
                     entering={FadeInDown.duration(280)}
@@ -278,7 +260,7 @@ export default function MirrorConversationBottomBar({
                             ref={inputRef}
                             value={message}
                             onChangeText={handleMessageChange}
-                            placeholder="Tell Aks what’s on your mind…"
+                            placeholder={copy.mirrorBar.composerPlaceholder}
                             placeholderTextColor={low.color}
                             multiline
                             maxLength={1200}
@@ -301,7 +283,7 @@ export default function MirrorConversationBottomBar({
                                         <HugeiconsIcon
                                             icon={ArrowUp01Icon}
                                             size={20}
-                                            color="#fff"
+                                            color={primaryForeground}
                                         />
                                     }
                                 />
@@ -317,7 +299,7 @@ export default function MirrorConversationBottomBar({
                                         <HugeiconsIcon
                                             icon={XIcon}
                                             size={20}
-                                            color="#fff"
+                                            color={primaryForeground}
                                         />
                                     }
                                 />
@@ -335,7 +317,7 @@ export default function MirrorConversationBottomBar({
                     <AnimatedActionButton
                         delay={80}
                         onPress={cancelInput}
-                        accessibilityLabel="Close composer"
+                        accessibilityLabel={copy.mirrorBar.closeComposerA11y}
                         className="bg-red-400"
                         icon={
                             <HugeiconsIcon
@@ -349,7 +331,7 @@ export default function MirrorConversationBottomBar({
                     <AnimatedActionButton
                         delay={140}
                         onPress={toggleInput}
-                        accessibilityLabel="Open keyboard"
+                        accessibilityLabel={copy.mirrorBar.openKeyboardA11y}
                         active={inputVisible}
                         icon={
                             <HugeiconsIcon
@@ -372,8 +354,8 @@ export default function MirrorConversationBottomBar({
                             }
                             accessibilityLabel={
                                 mirror.voiceActive
-                                    ? "Stop voice conversation"
-                                    : "Start voice conversation"
+                                    ? copy.mirrorBar.stopVoiceA11y
+                                    : copy.mirrorBar.startVoiceA11y
                             }
                             active={mirror.voiceActive}
                             icon={
@@ -396,8 +378,8 @@ export default function MirrorConversationBottomBar({
                         onPress={mirror.toggleVoiceOutput}
                         accessibilityLabel={
                             mirror.voiceOutputEnabled
-                                ? "Turn spoken replies off"
-                                : "Turn spoken replies on"
+                                ? copy.mirrorBar.voiceOffA11y
+                                : copy.mirrorBar.voiceOnA11y
                         }
                         active={mirror.voiceOutputEnabled}
                         icon={
@@ -407,20 +389,6 @@ export default function MirrorConversationBottomBar({
                                         ? VolumeHighIcon
                                         : VolumeOffIcon
                                 }
-                                size={20}
-                                color={high.color}
-                            />
-                        }
-                    />
-
-                    <AnimatedActionButton
-                        delay={260}
-                        onPress={toggleMenu}
-                        accessibilityLabel="More conversation options"
-                        active={menuOpen}
-                        icon={
-                            <HugeiconsIcon
-                                icon={Menu01Icon}
                                 size={20}
                                 color={high.color}
                             />
@@ -437,8 +405,7 @@ export default function MirrorConversationBottomBar({
                         variant="caption"
                         className="mt-3 text-center text-text-high"
                     >
-                        You don’t need to organize your thoughts
-                        first. Just start talking.
+                        {copy.mirrorBar.hint}
                     </AppText>
                 </Animated.View>
             </>}
@@ -540,7 +507,7 @@ function AnimatedSendButton({
     return (
         <Animated.View style={animatedStyle}>
             <IconButton
-                accessibilityLabel="Send message"
+                accessibilityLabel={copy.mirrorBar.sendMessageA11y}
                 onPress={onPress}
                 disabled={disabled}
                 className="bg-primary"

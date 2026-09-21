@@ -6,9 +6,7 @@ import {
     Pressable,
     ScrollView,
     View,
-    Alert,
 } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useVideoPlayer, VideoView } from "expo-video";
 import Animated, {
@@ -26,9 +24,11 @@ import { useEventListener } from "expo";
 import AppText from "@/components/ui/Text";
 import AppLogo from "@/components/ui/AppLogo";
 import AnimatedButton from "@/components/ui/AnimatedButton";
+import { useBottomSheet } from "@/components/ui/BottomSheetProvider";
 import type { RootStackParamList } from "@/navigation/routes";
 import LogoMark from "@/components/common/LogoMark";
 import { useAppFlow } from "@/providers/AppFlowProvider";
+import { copy } from "@/constants/copy";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -43,24 +43,21 @@ type Slide = {
 
 const slides: Slide[] = [
     {
-        eyebrow: "YOUR LIFE LEAVES CLUES",
-        title: "You already leave\nclues about yourself.",
-        description:
-            "The things you repeat. The moments you avoid. The days that feel different. Aks brings those signals together.",
+        eyebrow: copy.onboarding.slides[0].eyebrow,
+        title: copy.onboarding.slides[0].title,
+        description: copy.onboarding.slides[0].description,
         asset: require("@assets/videos/slide_1.mp4"),
     },
     {
-        eyebrow: "DON'T JUST REFLECT",
-        title: "Don’t guess.\nTest it.",
-        description:
-            "Turn a hunch into a small experiment. Change one thing, measure what happens, and discover what actually works for you.",
+        eyebrow: copy.onboarding.slides[1].eyebrow,
+        title: copy.onboarding.slides[1].title,
+        description: copy.onboarding.slides[1].description,
         asset: require("@assets/videos/slide_2.mp4"),
     },
     {
-        eyebrow: "A CLEARER YOU",
-        title: "Become less of\na mystery to yourself.",
-        description:
-            "Over time, Aks builds a living picture of your patterns, your responses, and the changes that make a difference.",
+        eyebrow: copy.onboarding.slides[2].eyebrow,
+        title: copy.onboarding.slides[2].title,
+        description: copy.onboarding.slides[2].description,
         asset: require("@assets/videos/slide_3.mp4"),
     },
 ];
@@ -190,6 +187,7 @@ function AnimatedSlideContent({
 
 export default function OnboardingScreen({ navigation }: Props) {
     const { completeOnboarding } = useAppFlow();
+    const { notice } = useBottomSheet();
     const scrollRef = useRef<ScrollView>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [saving, setSaving] = useState(false);
@@ -248,7 +246,7 @@ export default function OnboardingScreen({ navigation }: Props) {
             setSaving(true);
             await completeOnboarding();
         } catch {
-            Alert.alert("Unable to continue", "Please try again.");
+            notice(copy.onboarding.notices.unableToContinue, copy.common.pleaseTryAgain);
             setSaving(false);
         }
     };
@@ -273,7 +271,6 @@ export default function OnboardingScreen({ navigation }: Props) {
 
     return (
         <View className="flex-1 bg-background">
-            <StatusBar style="dark" />
 
             <Animated.View
                 entering={FadeIn.duration(500)}
@@ -291,7 +288,7 @@ export default function OnboardingScreen({ navigation }: Props) {
                             hitSlop={12}
                         >
                             <AppText className="text-sm text-text-high">
-                                Skip
+                                {copy.onboarding.skip}
                             </AppText>
                         </Pressable>
                     </Animated.View>
@@ -350,7 +347,7 @@ export default function OnboardingScreen({ navigation }: Props) {
                         borderColor="border-transparent"
                         className="mx-5 mb-5 rounded-full shadow-2xl shadow-neutral-300"
                     >
-                        {isLastSlide ? "Get started" : "Move forward"}
+                        {isLastSlide ? copy.onboarding.getStarted : copy.onboarding.moveForward}
                     </AnimatedButton>
                 </Animated.View>
             </View>

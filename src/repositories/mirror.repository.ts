@@ -1,6 +1,6 @@
 import { fetch as streamingFetch } from "expo/fetch";
 
-import { supabase, supabaseUrl } from "@/lib/supabase";
+import { supabase, supabaseUrl, assertSupabaseConfigured } from "@/lib/supabase";
 import type { Json } from "@/types/database";
 import type { Message } from "@/types/data";
 
@@ -34,7 +34,7 @@ export type MirrorStreamResult = {
 };
 
 export class MirrorRepositoryError extends Error {
-    constructor(public readonly code: "AI_UNAVAILABLE" | "INVALID_AI_OUTPUT" | "RATE_LIMITED" | "ATTEMPTS_EXHAUSTED" | "CONVERSATION_UNAVAILABLE") {
+    constructor(public readonly code: "AI_UNAVAILABLE" | "INVALID_AI_OUTPUT" | "RATE_LIMITED" | "ATTEMPTS_EXHAUSTED" | "CONVERSATION_UNAVAILABLE" | "NOTHING_TO_REGENERATE") {
         super(code);
         this.name = "MirrorRepositoryError";
     }
@@ -44,6 +44,7 @@ function errorFromCode(code: string | undefined): MirrorRepositoryError {
     if (code === "INVALID_AI_OUTPUT") return new MirrorRepositoryError("INVALID_AI_OUTPUT");
     if (code === "RATE_LIMITED") return new MirrorRepositoryError("RATE_LIMITED");
     if (code === "ATTEMPTS_EXHAUSTED") return new MirrorRepositoryError("ATTEMPTS_EXHAUSTED");
+    if (code === "NOTHING_TO_REGENERATE") return new MirrorRepositoryError("NOTHING_TO_REGENERATE");
     if (code === "NOT_FOUND") return new MirrorRepositoryError("CONVERSATION_UNAVAILABLE");
     return new MirrorRepositoryError("AI_UNAVAILABLE");
 }
@@ -94,9 +95,13 @@ const supabaseAnonKey =
     "";
 
 export const mirrorRepository = {
-    async processMessage(conversationId: string, userMessageId: string) {
+    /** Per-turn options. `language` is the language the app is currently
+     * displaying, so the reply matches what the user is reading; the server
+     * prefers it over the stored preference and ignores unknown codes. */
+    async processMessage(conversationId: string, userMessageId: string, options: { regenerate?: boolean; language?: string } = {}) {
+        assertSupabaseConfigured();
         const { data, error } = await supabase.functions.invoke<MirrorFunctionResponse>("mirror", {
-            body: { conversationId, userMessageId },
+            body: { conversationId, userMessageId, regenerate: options.regenerate === true, language: options.language },
         });
         if (error) {
             const context = (error as { context?: Response }).context;
@@ -126,7 +131,9 @@ export const mirrorRepository = {
         conversationId: string,
         userMessageId: string,
         onDelta: (accumulatedText: string) => void,
+        options: { regenerate?: boolean; language?: string } = {},
     ): Promise<MirrorStreamResult> {
+        assertSupabaseConfigured();
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData.session?.access_token;
         if (!token) throw new MirrorRepositoryError("AI_UNAVAILABLE");
@@ -138,7 +145,7 @@ export const mirrorRepository = {
                 apikey: supabaseAnonKey,
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({ conversationId, userMessageId }),
+            body: JSON.stringify({ conversationId, userMessageId, regenerate: options.regenerate === true, language: options.language }),
         });
 
         if (!response.ok || !response.body) {
@@ -170,6 +177,7 @@ export const mirrorRepository = {
         throw new MirrorRepositoryError("AI_UNAVAILABLE");
     },
     async processObservations(conversationId: string, userMessageId: string) {
+        assertSupabaseConfigured();
         const { data, error } = await supabase.functions.invoke("mirror-observe", {
             body: { conversationId, userMessageId },
         });

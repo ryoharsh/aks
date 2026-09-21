@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { copy } from "@/constants/copy";
 import { usePagedData } from "./usePagedData";
 import { conversationsService } from "@/services/conversations.service";
 import type { Conversation, Message } from "@/types/data";
@@ -54,7 +55,7 @@ export function useConversation(conversationId: string) {
             setMessages([...messagePage.items].reverse());
             setHasMore(messagePage.hasMore);
         } catch {
-            if (request === requestRef.current) setError("We couldn't load this conversation. Please try again.");
+            if (request === requestRef.current) setError(copy.errors.conversation);
         } finally {
             if (request === requestRef.current) setLoading(false);
         }
@@ -84,10 +85,25 @@ export function useConversation(conversationId: string) {
         }
     };
 
+    const [renameError, setRenameError] = useState<string | null>(null);
+    const rename = async (title: string) => {
+        const normalized = title.trim();
+        if (!normalized) return null;
+        try {
+            const updated = await conversationsService.updateConversation(conversationId, { title: normalized });
+            setConversation(updated);
+            setRenameError(null);
+            return updated;
+        } catch {
+            setRenameError("We couldn't rename that conversation. Please try again.");
+            return null;
+        }
+    };
+
     useEffect(() => {
         void refresh();
         return () => { requestRef.current += 1; };
     }, [refresh]);
     useEffect(() => dataEvents.subscribe("messages", () => { void refresh(); }), [refresh]);
-    return { conversation, messages, loading, loadingMore, hasMore, error, loadMoreError, refresh, loadMore };
+    return { conversation, messages, loading, loadingMore, hasMore, error, loadMoreError, refresh, loadMore, rename, renameError };
 }

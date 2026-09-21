@@ -6,11 +6,13 @@ import type { MirrorDataRepository, StoredAssistant } from "./mirror.repository.
 import { conversationResponseTask, signalExtractionTask } from "./prompts.ts";
 import { validateConversationResponse, validateSignals } from "./validation.ts";
 import type { ValidatedSignal } from "./validation.ts";
-import { crisisResponse, requiresCrisisResponse } from "./safety.ts";
+import { requiresCrisisResponse } from "./safety.ts";
+import { crisisResponseFor } from "./crisis-response.ts";
 import type { MemoryRepository } from "../memory/memory.repository.ts";
 import { evaluateMemory } from "../memory/memory.service.ts";
 import type { PatternRepository } from "../pattern/pattern.repository.ts";
 import { analyzePatterns } from "../pattern/pattern.service.ts";
+import { resolveEarlyUnderstanding } from "../early-understanding/early-understanding.novelty.ts";
 
 export type MirrorTurnInput = {
     repository: MirrorDataRepository;
@@ -19,6 +21,20 @@ export type MirrorTurnInput = {
     ai?: { generate(request: AIRequest): Promise<AIResult> };
     memoryRepository?: MemoryRepository;
     patternRepository?: PatternRepository;
+    /**
+     * Regenerate the assistant reply of an already-answered turn. The user turn
+     * is reused as-is and its single assistant message is replaced in place, so
+     * a regeneration can never duplicate the user message or leave two visible
+     * assistant versions behind (9.7).
+     */
+    regenerate?: boolean;
+    /**
+     * The language the client is currently displaying, when it supplied one.
+     * Preferred over the stored preference: a language chosen while offline is
+     * applied to the UI immediately but its server sync is best-effort, so the
+     * request is the more current of the two signals.
+     */
+    responseLanguage?: string | null;
 };
 
 export type ConversationTurnResult = {
@@ -68,8 +84,11 @@ export const relevantSourcesForMessage = (message: string): string[] | null => {
 
 const makeRunAI = (input: MirrorTurnInput) => {
     const ai = input.ai ?? aiService;
+    const claimRun = async (request: AIRequest) => input.regenerate && request.task === "conversation_response"
+        ? input.repository.claimRegenerationRun({ conversationId: input.conversationId, userMessageId: input.userMessageId, task: request.task })
+        : input.repository.claimAIRun({ conversationId: input.conversationId, userMessageId: input.userMessageId, task: request.task });
     return async <T>(request: AIRequest, validate: (content: string) => T) => {
-        const claim = await input.repository.claimAIRun({ conversationId: input.conversationId, userMessageId: input.userMessageId, task: request.task });
+        const claim = await claimRun(request);
         if (claim.status === "succeeded") return null;
         try {
             const result = await ai.generate(request);
@@ -86,6 +105,37 @@ const makeRunAI = (input: MirrorTurnInput) => {
     };
 };
 
+/**
+ * Persist the assistant reply for a turn. A regeneration replaces the existing
+ * reply in place (one visible version, same message id, no duplicate rows); a
+ * first generation keeps its idempotent insert-once behavior. Both paths re-read
+ * the stored reply rather than failing when another request already wrote it.
+ * Exported so the streaming transport persists replies with identical
+ * semantics instead of maintaining a second, drifting copy of these rules.
+ */
+export async function persistAssistantReply(input: {
+    repository: MirrorDataRepository;
+    conversationId: string;
+    userMessageId: string;
+    regenerate: boolean;
+    existing: StoredAssistant | null;
+    content: string;
+    responseText: string;
+    followUp: string | null;
+    taskVersion: string;
+}): Promise<StoredAssistant> {
+    if (input.regenerate && input.existing) {
+        return input.repository.replaceAssistant({ messageId: input.existing.id, conversationId: input.conversationId, content: input.content, responseText: input.responseText, followUp: input.followUp, taskVersion: input.taskVersion });
+    }
+    try {
+        return await input.repository.saveAssistant({ conversationId: input.conversationId, userMessageId: input.userMessageId, content: input.content, responseText: input.responseText, followUp: input.followUp, taskVersion: input.taskVersion });
+    } catch {
+        const stored = await input.repository.findAssistantReply(input.conversationId, input.userMessageId);
+        if (!stored) throw new Error("ASSISTANT_PERSISTENCE_FAILED");
+        return stored;
+    }
+}
+
 const makeCompleteSuccessfulRun = (input: MirrorTurnInput) => (generated: { runId: string; result: AIResult }) => input.repository.updateAIRun(generated.runId, {
     status: "succeeded",
     provider: generated.result.provider,
@@ -99,23 +149,24 @@ const makeCompleteSuccessfulRun = (input: MirrorTurnInput) => (generated: { runI
 export async function processConversationTurn(input: MirrorTurnInput): Promise<ConversationTurnResult> {
     const runAI = makeRunAI(input);
     const completeSuccessfulRun = makeCompleteSuccessfulRun(input);
+    const regenerate = input.regenerate === true;
 
     const conversation = await input.repository.getConversation(input.conversationId);
     const userMessage = await input.repository.getUserMessage(input.conversationId, input.userMessageId);
     if (userMessage.content.length > 12000) throw new Error("MESSAGE_TOO_LARGE");
 
-    const persistSafetyResponse = async () => {
-        try {
-            return await input.repository.saveAssistant({ conversationId: input.conversationId, userMessageId: input.userMessageId, content: crisisResponse, responseText: crisisResponse, followUp: null, taskVersion: "safety_response_v1" });
-        } catch {
-            const existing = await input.repository.findAssistantReply(input.conversationId, input.userMessageId);
-            if (!existing) throw new Error("ASSISTANT_PERSISTENCE_FAILED");
-            return existing;
-        }
-    };
+    const persistAssistant = (values: { content: string; responseText: string; followUp: string | null; taskVersion: string }, existing: StoredAssistant | null) => persistAssistantReply({
+        repository: input.repository,
+        conversationId: input.conversationId,
+        userMessageId: input.userMessageId,
+        regenerate,
+        existing,
+        ...values,
+    });
 
     const existingReply = await input.repository.findAssistantReply(input.conversationId, input.userMessageId);
-    if (existingReply) {
+    if (regenerate && !existingReply) throw new Error("NOTHING_TO_REGENERATE");
+    if (existingReply && !regenerate) {
         await input.repository.reconcileAIRun(input.userMessageId, conversationResponseTask.task).catch(() => undefined);
         const safetyResponse = existingReply.metadata.task_version === "safety_response_v1";
         return {
@@ -126,9 +177,24 @@ export async function processConversationTurn(input: MirrorTurnInput): Promise<C
         };
     }
 
+    const persistSafetyResponse = (text: string) => persistAssistant({ content: text, responseText: text, followUp: null, taskVersion: "safety_response_v1" }, existingReply)
+        .catch(async () => {
+            const stored = await input.repository.findAssistantReply(input.conversationId, input.userMessageId);
+            if (!stored) throw new Error("ASSISTANT_PERSISTENCE_FAILED");
+            return stored;
+        });
+
     if (requiresCrisisResponse(userMessage.content)) {
-        const assistantMessage = await persistSafetyResponse();
-        return { conversationId: input.conversationId, response: { response: { text: crisisResponse }, followUp: null }, assistantMessage, observable: false };
+        // This path short-circuits before the context load, so the language is
+        // resolved here rather than reused from it. The client's own language
+        // needs no query; only a client that omitted it falls back to the stored
+        // preference — and a failed read must never delay or block the safety
+        // response, so it degrades to English instead of throwing.
+        const requested = input.responseLanguage ?? null;
+        const stored = requested ? null : (await input.repository.getPreferences().catch(() => null))?.language ?? null;
+        const crisisText = crisisResponseFor(requested ?? stored);
+        const assistantMessage = await persistSafetyResponse(crisisText);
+        return { conversationId: input.conversationId, response: { response: { text: crisisText }, followUp: null }, assistantMessage, observable: false };
     }
 
     const [recentMessages, recentSignals, activeMemories, supportedPatterns, activeExperiments, relevantLearnings, preferences, contextBundle] = await Promise.all([
@@ -141,7 +207,24 @@ export async function processConversationTurn(input: MirrorTurnInput): Promise<C
         input.repository.getPreferences(),
         input.repository.getContextBundle ? input.repository.getContextBundle(userMessage.createdAt, 6, 8, relevantSourcesForMessage(userMessage.content)) : Promise.resolve({ connectedSources: [] as string[], observations: [] as never[] }),
     ]);
-    const context = buildMirrorContext({ currentMessage: userMessage.content, conversation: { title: conversation.title }, recentMessages, recentSignals, activeMemories, supportedPatterns, activeExperiments, relevantLearnings, preferences, contextSources: contextBundle.connectedSources, relevantObservations: contextBundle.observations.slice(0, 8) });
+    // The client's displayed language wins over the stored preference; neither
+    // present resolves to English inside the context builder.
+    const responseLanguage = input.responseLanguage ?? preferences.language ?? null;
+    const context = buildMirrorContext({ currentMessage: userMessage.content, conversation: { title: conversation.title }, recentMessages, recentSignals, activeMemories, supportedPatterns, activeExperiments, relevantLearnings, preferences: { ...preferences, language: responseLanguage }, contextSources: contextBundle.connectedSources, relevantObservations: contextBundle.observations.slice(0, 8), earlyUnderstanding: (() => {
+        // Early-understanding layer: signal-only, never raw text.
+        // - pattern_ready/insufficient → null (handoff: formal supported/
+        //   possible patterns already in context speak; Pattern Engine is the
+        //   sole pattern gatekeeper with historical evidence).
+        // - notice/emerging → text unless the same observation was already
+        //   surfaced in recent assistant messages (novelty) or is covered by
+        //   a formal pattern (continuity).
+        try {
+            const early = resolveEarlyUnderstanding({ signals: recentSignals, recentMessages, supportedPatterns });
+            return early.noticeText ? { level: early.level, noticeText: early.noticeText } : null;
+        } catch {
+            return null;
+        }
+    })() });
     let policyBlocked = false;
     let responseRun;
     try {
@@ -152,25 +235,23 @@ export async function processConversationTurn(input: MirrorTurnInput): Promise<C
     }
     if (!responseRun) {
         if (!policyBlocked) throw new Error("AI_RUN_UNAVAILABLE");
-        const assistantMessage = await persistSafetyResponse();
-        return { conversationId: input.conversationId, response: { response: { text: crisisResponse }, followUp: null }, assistantMessage, observable: false };
+        const crisisText = crisisResponseFor(responseLanguage);
+        const assistantMessage = await persistSafetyResponse(crisisText);
+        return { conversationId: input.conversationId, response: { response: { text: crisisText }, followUp: null }, assistantMessage, observable: false };
     }
     const validated = responseRun.validated;
     const imminent = validated.safety.risk === "imminent";
     const response = imminent
-        ? { response: { text: crisisResponse }, followUp: null } as const
+        ? { response: { text: crisisResponseFor(responseLanguage) }, followUp: null } as const
         : { response: validated.response, followUp: validated.followUp };
     const content = response.followUp ? `${response.response.text}\n\n${response.followUp}` : response.response.text;
 
-    let assistantMessage;
+    let assistantMessage: StoredAssistant;
     try {
-        assistantMessage = await input.repository.saveAssistant({ conversationId: input.conversationId, userMessageId: input.userMessageId, content, responseText: response.response.text, followUp: response.followUp, taskVersion: conversationResponseTask.version });
+        assistantMessage = await persistAssistant({ content, responseText: response.response.text, followUp: response.followUp, taskVersion: imminent ? "safety_response_v1" : conversationResponseTask.version }, existingReply);
     } catch {
-        assistantMessage = await input.repository.findAssistantReply(input.conversationId, input.userMessageId);
-        if (!assistantMessage) {
-            await input.repository.updateAIRun(responseRun.runId, { status: "failed", error_code: "ASSISTANT_PERSISTENCE_FAILED", completed_at: new Date().toISOString() });
-            throw new Error("ASSISTANT_PERSISTENCE_FAILED");
-        }
+        await input.repository.updateAIRun(responseRun.runId, { status: "failed", error_code: "ASSISTANT_PERSISTENCE_FAILED", completed_at: new Date().toISOString() });
+        throw new Error("ASSISTANT_PERSISTENCE_FAILED");
     }
     await completeSuccessfulRun(responseRun);
     return { conversationId: input.conversationId, response, assistantMessage, observable: !imminent };
@@ -232,7 +313,9 @@ export async function processObservationPipeline(input: MirrorTurnInput): Promis
 
 export async function processMirrorTurn(input: MirrorTurnInput): Promise<ConversationTurnResult & ObservationTurnResult> {
     const conversation = await processConversationTurn(input);
-    if (!conversation.observable) {
+    // A regeneration re-answers an unchanged user turn: its observations were
+    // already extracted, so re-running the pipeline would only re-read them.
+    if (!conversation.observable || input.regenerate) {
         return { ...conversation, signalsSaved: 0, signals: [], memoryCandidates: [], patternActions: [] };
     }
     const observation = await processObservationPipeline(input);

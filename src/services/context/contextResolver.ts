@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { requireAuthenticatedUser } from "@/repositories/data.repository";
+import { copy } from "@/constants/copy";
 
 export type ContextBundle = {
     connectedSources: string[];
@@ -41,23 +42,22 @@ export const contextResolver = {
     transparencyLine(bundle: ContextBundle | null): string | null {
         if (!bundle || bundle.connectedSources.length === 0) return null;
         const names: Record<string, string> = {
-            location: "location",
-            calendar: "calendar",
-            google_calendar: "Google Calendar",
-            apple_calendar: "Apple Calendar",
-            reminders: "tasks",
-            google_tasks: "Google Tasks",
-            apple_reminders: "Apple Reminders",
-            todoist: "Todoist",
-            notion: "Notion",
-            github: "GitHub",
-            slack: "Slack",
-            email: "email",
-            screen_time: "screen time",
-            photos: "photos",
-            voice_session: "voice",
+            location: copy.transparency.names.location,
+            calendar: copy.transparency.names.calendar,
+            google_calendar: copy.transparency.names.googleCalendar,
+            apple_calendar: copy.transparency.names.appleCalendar,
+            reminders: copy.transparency.names.reminders,
+            google_tasks: copy.transparency.names.googleTasks,
+            apple_reminders: copy.transparency.names.appleReminders,
+            todoist: copy.transparency.names.todoist,
+            notion: copy.transparency.names.notion,
+            github: copy.transparency.names.github,
+            slack: copy.transparency.names.slack,
+            email: copy.transparency.names.email,
+            screen_time: copy.transparency.names.screenTime,
+            voice_session: copy.transparency.names.voiceSession,
         };
         const connected = bundle.connectedSources.map((source) => names[source] ?? source).join(" and ");
-        return `You've connected your ${connected}, so Aks can see that context alongside what you share here.`;
+        return copy.transparency.connectedWith(connected);
     },
 };

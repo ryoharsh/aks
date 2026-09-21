@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import type { Database, Json } from "@/types/database";
 import type { Page, PageOptions, Signal, SignalSourceType } from "@/types/data";
+import { copy } from "@/constants/copy";
 import { requireAuthenticatedUser, throwDataError } from "./data.repository";
 import { pageRange } from "./pagination";
 
@@ -11,7 +12,7 @@ export const signalsRepository = {
     async create(values: { sourceType: SignalSourceType; sourceId: string; sourceMessageId?: string | null; signalType: string; value: Json; confidence?: number | null; observedAt: string }) {
         await requireAuthenticatedUser();
         const { data, error } = await supabase.from("signals").insert({ source_type: values.sourceType, source_id: values.sourceId, source_message_id: values.sourceMessageId, signal_type: values.signalType.trim(), value: values.value, confidence: values.confidence, observed_at: values.observedAt }).select().single();
-        if (error) throwDataError(error, "We couldn't save that observation.");
+        if (error) throwDataError(error, copy.errors.writes.observation);
         return mapSignal(data);
     },
     async get(id: string) {

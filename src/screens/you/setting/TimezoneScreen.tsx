@@ -1,6 +1,9 @@
+import { useMemo } from "react";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import ProfilePreferenceScreen from "@/components/setting/ProfilePreferenceScreen";
+import { usePreferences } from "@/providers/PreferencesProvider";
+import { copy } from "@/constants/copy";
 
 import type { SettingsStackParamList } from "@/navigation/routes";
 
@@ -11,7 +14,7 @@ type TimezoneOption = {
     label: string;
 };
 
-function getTimezoneLabel(timeZone: string): TimezoneOption {
+export function getTimezoneLabel(timeZone: string): TimezoneOption {
     const date = new Date();
 
     const shortName = new Intl.DateTimeFormat("en-US", {
@@ -52,25 +55,33 @@ function getTimezoneOptions(): TimezoneOption[] {
 }
 
 export default function TimezoneScreen({ navigation }: Props) {
+    const { preferences, updatePreferences } = usePreferences();
     const deviceTimezone =
         Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-    const timezoneOptions = getTimezoneOptions();
+    const timezoneOptions = useMemo(getTimezoneOptions, []);
+    // Explicit choice wins; otherwise follow the device-reported zone.
+    const activeTimezone = preferences.timezone ?? deviceTimezone;
 
-    const deviceTimezoneOption =
+    const activeTimezoneOption =
         timezoneOptions.find(
-            (option) => option.value === deviceTimezone,
-        ) ?? getTimezoneLabel(deviceTimezone);
+            (option) => option.value === activeTimezone,
+        ) ?? getTimezoneLabel(activeTimezone);
+
+    const saveTimezone = async (selections: string[]) => {
+        const picked = timezoneOptions.find((option) => option.label === selections[0]);
+        await updatePreferences({ timezone: picked?.value ?? activeTimezone });
+    };
 
     return (
         <ProfilePreferenceScreen
-            headerTitle="Timezone"
-            eyebrow="PREFERENCES"
-            title="Your local time."
-            description="Aks uses the timezone reported by your device. A persistent choice will only be added when scheduling requires it."
+            headerTitle={copy.timezone.header}
+            eyebrow={copy.timezone.eyebrow}
+            title={copy.timezone.title}
+            description={copy.timezone.description}
             options={timezoneOptions.map((option) => option.label)}
-            selections={[deviceTimezoneOption.label]}
-            onSave={async () => { }}
+            selections={[activeTimezoneOption.label]}
+            onSave={saveTimezone}
             onBack={() => navigation.goBack()}
         />
     );

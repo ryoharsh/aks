@@ -10,17 +10,11 @@ import AppText from "@/components/ui/Text";
 import IconButton from "@/components/ui/IconButton";
 import type { PrivacyStackParamList } from "@/navigation/routes";
 import type { RootStackParamList } from "@/navigation/routes";
+import { copy } from "@/constants/copy";
 
 type Props = NativeStackScreenProps<PrivacyStackParamList, "DataUsage">;
 
-const SECTIONS = [
-    ["Why Aks uses your data", "Information you choose to share helps Aks personalize reflections, identify useful themes, and support your goals."],
-    ["Reflections and check-ins", "Your entries can provide context for changes in mood, energy, focus, and routines over time."],
-    ["Pattern detection", "Aks can compare information you provide to surface possible patterns for you to review. These are prompts for reflection, not medical conclusions."],
-    ["Memory", "Aks may retain a small amount of repeated, useful context. Every memory stays linked to the information that supports it and can be removed without deleting the original source."],
-    ["Experiments and outcomes", "Experiment entries can help you compare what you tried with the outcomes you recorded."],
-    ["AI-assisted understanding", "AI may help organize and summarize the information you provide. Review important insights and use your own judgment."],
-] as const;
+const SECTIONS = copy.dataUsage.sections;
 
 export default function DataUsageScreen({ navigation }: Props) {
     const rootNavigation = useNavigation<NavigationProp<RootStackParamList>>();
@@ -30,15 +24,15 @@ export default function DataUsageScreen({ navigation }: Props) {
         <View className="flex-1 bg-background">
             <Animated.View entering={FadeInDown.duration(400)} className="h-16 flex-row items-center px-5">
                 <IconButton onPress={() => navigation.goBack()} className="mr-3"><HugeiconsIcon icon={ArrowLeft01Icon} size={22} color={color} /></IconButton>
-                <AppText variant="title" className="text-text-high">How your data is used</AppText>
+                <AppText variant="title" className="text-text-high">{copy.dataUsage.header}</AppText>
             </Animated.View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-5 pb-24">
                 <Animated.View entering={FadeInDown.duration(500).delay(70)} className="mt-5">
-                    <AppText variant="display" className="text-text-high">Your data has a purpose.</AppText>
-                    <AppText className="mt-3 leading-6 text-text-low">Aks uses information within the product to make your experience more relevant and understandable.</AppText>
+                    <AppText variant="display" className="text-text-high">{copy.dataUsage.title}</AppText>
+                    <AppText className="mt-3 leading-6 text-text-low">{copy.dataUsage.description}</AppText>
                 </Animated.View>
                 <Animated.View entering={FadeInUp.duration(500).delay(150)} className="mt-8 overflow-hidden rounded-[28px] border border-border bg-surface">
-                    {SECTIONS.map(([title, body], index) => (
+                    {SECTIONS.map(({ title, body }, index) => (
                         <View key={title} className={`px-5 py-5 ${index < SECTIONS.length - 1 ? "border-b border-border" : ""}`}>
                             <AppText variant="button" className="text-text-high">{title}</AppText>
                             <AppText className="mt-2 leading-6 text-text-low">{body}</AppText>
@@ -46,7 +40,7 @@ export default function DataUsageScreen({ navigation }: Props) {
                     ))}
                 </Animated.View>
                 <Pressable onPress={() => rootNavigation.navigate("PrivacyPolicy")} className="mt-7 flex-row items-center justify-between rounded-2xl border border-border bg-surface px-5 py-4">
-                    <AppText variant="button" className="text-text-high">Read full Privacy Policy</AppText>
+                    <AppText variant="button" className="text-text-high">{copy.dataUsage.privacyPolicyAction}</AppText>
                     <HugeiconsIcon icon={ArrowRight01Icon} size={19} color={muted} />
                 </Pressable>
             </ScrollView>

@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import type { Database, Json } from "@/types/database";
 import type { CheckIn, Page, PageOptions } from "@/types/data";
+import { copy } from "@/constants/copy";
 import { requireAuthenticatedUser, throwDataError } from "./data.repository";
 import { pageRange } from "./pagination";
 
@@ -35,9 +36,9 @@ export const checkInsRepository = {
             },
             request_id: requestId ?? createCheckInRequestId(),
         });
-        if (error) throwDataError(error, "We couldn't save that check-in.");
+        if (error) throwDataError(error, copy.errors.writes.checkIn);
         const saved = data as { id: string; created_at: string } | null;
-        if (!saved?.id) throwDataError(new Error("Missing check-in result"), "We couldn't save that check-in.");
+        if (!saved?.id) throwDataError(new Error("Missing check-in result"), copy.errors.writes.checkIn);
         return mapCheckIn({
             id: saved.id,
             user_id: user.id,

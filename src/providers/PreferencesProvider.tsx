@@ -42,7 +42,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         try {
             const loaded = await preferencesService.getOrCreate(user.id);
             if (requestId.current === currentRequest) setPreferences(loaded);
-            void preferencesService.syncNotificationTimezone();
+            // Device sync only fills the scheduling timezone while the user
+            // has no explicit choice, so a manual pick is never overwritten.
+            if (!loaded.timezone) void preferencesService.syncNotificationTimezone();
         } catch {
             if (requestId.current === currentRequest) setError("We couldn't load your preferences.");
         } finally {

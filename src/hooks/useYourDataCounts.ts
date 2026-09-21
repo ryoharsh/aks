@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { copy } from "@/constants/copy";
 import { yourDataService } from "@/services/yourData.service";
 import type { YourDataCounts } from "@/types/data";
 import { dataEvents } from "@/services/dataEvents";
@@ -18,7 +19,7 @@ export function useYourDataCounts() {
             const nextCounts = await yourDataService.getCounts();
             if (request === requestRef.current) setCounts(nextCounts);
         } catch {
-            if (request === requestRef.current) setError("We couldn't load your data summary. Please try again.");
+            if (request === requestRef.current) setError(copy.errors.dataSummary);
         } finally {
             if (request === requestRef.current) setLoading(false);
         }

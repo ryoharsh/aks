@@ -4,6 +4,7 @@ import { useNavigation, type NavigationProp } from "@react-navigation/native";
 
 import AppText from "@/components/ui/Text";
 import type { RootStackParamList } from "@/navigation/routes";
+import { copy } from "@/constants/copy";
 
 export default function LegalLinks() {
     const navigation = useNavigation<NavigationProp<RootStackParamList>>();
@@ -15,7 +16,7 @@ export default function LegalLinks() {
                 variant="caption"
                 className="text-text-low"
             >
-                By continuing, you agree to Aks.ai's{" "}
+                {copy.legal.links.prefix}{" "}
             </AppText>
 
             <Pressable
@@ -26,7 +27,7 @@ export default function LegalLinks() {
                     variant="caption"
                     className="text-text-high underline"
                 >
-                    Terms of Service
+                    {copy.legal.links.terms}
                 </AppText>
             </Pressable>
 
@@ -34,7 +35,7 @@ export default function LegalLinks() {
                 variant="caption"
                 className="text-text-low"
             >
-                {" "}and{" "}
+                {" "}{copy.legal.links.andWord}{" "}
             </AppText>
 
             <Pressable
@@ -47,7 +48,7 @@ export default function LegalLinks() {
                     variant="caption"
                     className="text-text-high underline"
                 >
-                    Privacy Policy
+                    {copy.legal.links.privacy}
                 </AppText>
             </Pressable>
 

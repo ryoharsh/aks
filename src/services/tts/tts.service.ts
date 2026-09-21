@@ -1,4 +1,5 @@
 import { defaultTTSConfig, type TTSConfig, type TTSProvider, type TTSState, type TTSUtteranceHandlers } from "./tts.types";
+import { createTTSProvider } from "./providers/tts-provider.registry";
 
 export const MIN_UTTERANCE_CHARS = 8;
 export const MAX_UTTERANCE_CHARS = 180;
@@ -283,8 +284,9 @@ export class TTSService {
     private async resolveProvider(): Promise<TTSProvider> {
         if (this.provider) return this.provider;
         if (!this.providerPromise) {
-            this.providerPromise = import("./providers/expo-speech.provider").then((module) => {
-                const provider = module.createExpoSpeechProvider();
+            // Vendor selection lives in the TTS registry (config.provider,
+            // default "expo-speech"). This service never names a vendor.
+            this.providerPromise = createTTSProvider(this.config.provider).then((provider) => {
                 provider.configure(this.config);
                 this.provider = provider;
                 this.emit();

@@ -7,6 +7,7 @@ import { useResolveClassNames } from "uniwind";
 import AppText from "@/components/ui/Text";
 import IconButton from "@/components/ui/IconButton";
 import Button from "@/components/ui/Button";
+import { copy } from "@/constants/copy";
 
 type DataItem = {
     id: string;
@@ -73,14 +74,14 @@ export default function DataCategoryScreen({
                 </Animated.View>
 
                 <Animated.View entering={FadeInUp.duration(450).delay(150)} className="mt-9">
-                    <AppText variant="caption" className="mb-3 tracking-[1.5px] text-text-low">RECENT</AppText>
+                    <AppText variant="caption" className="mb-3 tracking-[1.5px] text-text-low">{copy.dataCategory.recentSection}</AppText>
                     {loading ? (
-                        <View className="items-center py-10"><ActivityIndicator color={iconColor} accessibilityLabel={`Loading ${headerTitle}`} /></View>
+                        <View className="items-center py-10"><ActivityIndicator color={iconColor} accessibilityLabel={copy.dataCategory.loadingA11y(headerTitle)} /></View>
                     ) : error ? (
                         <View className="rounded-[28px] border border-border bg-surface p-5">
-                            <AppText variant="title" className="text-text-high">Unable to load this data.</AppText>
+                            <AppText variant="title" className="text-text-high">{copy.dataCategory.loadErrorTitle}</AppText>
                             <AppText className="mt-3 text-text-low">{error}</AppText>
-                            {onRetry ? <Button variant="secondary" onPress={onRetry} className="mt-5"><AppText variant="button" className="text-text-high">Try again</AppText></Button> : null}
+                            {onRetry ? <Button variant="secondary" onPress={onRetry} className="mt-5"><AppText variant="button" className="text-text-high">{copy.dataCategory.tryAgain}</AppText></Button> : null}
                         </View>
                     ) : items.length > 0 ? (
                         <View className="overflow-hidden rounded-[28px] border border-border bg-surface">
@@ -98,7 +99,7 @@ export default function DataCategoryScreen({
                             ))}
                             {hasMore && onLoadMore ? (
                                 <Button variant="ghost" onPress={onLoadMore} loading={loadingMore} className="border-t border-border">
-                                    <AppText variant="button" className="text-text-medium">Load more</AppText>
+                                    <AppText variant="button" className="text-text-medium">{copy.dataCategory.loadMore}</AppText>
                                 </Button>
                             ) : null}
                             {loadMoreError ? <AppText variant="caption" className="px-5 py-3 text-red-600">{loadMoreError}</AppText> : null}
@@ -112,8 +113,8 @@ export default function DataCategoryScreen({
                 </Animated.View>
 
                 <Animated.View entering={FadeInUp.duration(450).delay(220)} className="mt-6 rounded-[28px] border border-border bg-surface p-5">
-                    <AppText variant="caption" className="tracking-[1.5px] text-text-low">A NOTE FROM AKS</AppText>
-                    <AppText className="mt-3 leading-6 text-text-low">These are placeholder entries until your account data is connected.</AppText>
+                    <AppText variant="caption" className="tracking-[1.5px] text-text-low">{copy.dataCategory.noteCaption}</AppText>
+                    <AppText className="mt-3 leading-6 text-text-low">{copy.dataCategory.noteBody}</AppText>
                 </Animated.View>
             </ScrollView>
         </View>

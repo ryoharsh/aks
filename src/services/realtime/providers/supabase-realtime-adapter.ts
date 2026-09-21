@@ -1,7 +1,9 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, assertSupabaseConfigured } from "@/lib/supabase";
 
 import type { RealtimeProviderAdapter, RealtimeSessionRequest, RealtimeSessionSpec } from "../types";
 import { MirrorRealtimeError, realTimeErrorMessage } from "../types";
+
+const isDev = typeof __DEV__ !== "undefined" && __DEV__;
 
 type RealtimeSessionFunctionResponse = {
     spec: RealtimeSessionSpec;
@@ -28,15 +30,34 @@ async function functionErrorContext(payload: { error?: { code?: unknown; message
 export function createSupabaseRealtimeAdapter(): RealtimeProviderAdapter {
     return {
         async createSession(request: RealtimeSessionRequest) {
+            try {
+                assertSupabaseConfigured();
+            } catch {
+                throw new MirrorRealtimeError("REALTIME_NOT_CONFIGURED", false, realTimeErrorMessage("REALTIME_NOT_CONFIGURED"));
+            }
             const { data, error } = await supabase.functions.invoke<RealtimeSessionFunctionResponse>("realtime-session", {
                 body: { conversationId: request.conversationId },
             });
             if (error) {
+                if (isDev) {
+                    console.error("[AksRealtime] realtime-session invoke failed:", error);
+                    const contextResponse = (error as { context?: Response }).context;
+                    if (contextResponse) {
+                        try {
+                            const body = await contextResponse.clone().json();
+                            console.error("[AksRealtime] realtime-session response:", body);
+                        } catch {
+                            // Body already consumed or not JSON; the parsed
+                            // mapping below still applies.
+                        }
+                    }
+                }
                 const context = (error as { context?: Response }).context;
                 if (context) {
                     try {
                         const payload = await context.clone().json() as { error?: { code?: string; message?: string } };
                         const { code } = await functionErrorContext(payload);
+                        if (isDev) console.log("[AksRealtime] realtime-session error code:", code ?? "(missing)");
                         if (code === "REALTIME_NOT_CONFIGURED") {
                             throw new MirrorRealtimeError("REALTIME_NOT_CONFIGURED", false, realTimeErrorMessage("REALTIME_NOT_CONFIGURED"));
                         }
@@ -45,6 +66,9 @@ export function createSupabaseRealtimeAdapter(): RealtimeProviderAdapter {
                         }
                         if (code === "RATE_LIMITED") {
                             throw new MirrorRealtimeError("REALTIME_SESSION_UNAVAILABLE", true, realTimeErrorMessage("REALTIME_SESSION_UNAVAILABLE"));
+                        }
+                        if (code === "SUBSCRIPTION_REQUIRED") {
+                            throw new MirrorRealtimeError("REALTIME_SUBSCRIPTION_REQUIRED", true, payload.error?.message ?? realTimeErrorMessage("REALTIME_SUBSCRIPTION_REQUIRED"));
                         }
                         throw new MirrorRealtimeError("REALTIME_PROVIDER_ERROR", true, payload.error?.message ?? realTimeErrorMessage("REALTIME_PROVIDER_ERROR"));
                     } catch (parsed) {

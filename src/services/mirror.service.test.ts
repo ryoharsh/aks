@@ -72,7 +72,7 @@ describe("mirror service", () => {
         });
         const result = await mirrorService.sendMessage(null, userMessage.content, "request-1");
         expect(mocks.saveUserMessage).toHaveBeenCalledWith(null, userMessage.content, "request-1", {});
-        expect(mocks.processMessage).toHaveBeenCalledWith("conversation-1", "message-user");
+        expect(mocks.processMessage).toHaveBeenCalledWith("conversation-1", "message-user", { regenerate: false });
         expect(mocks.processObservations).toHaveBeenCalledWith("conversation-1", "message-user");
         expect(result.assistantMessage).toEqual(assistantMessage);
     });
@@ -124,10 +124,43 @@ describe("mirror service", () => {
         mocks.processMessage.mockResolvedValue({ assistantMessage, response: { response: { text: assistantMessage.content }, followUp: null }, signals: [] });
         const deltas: string[] = [];
         const result = await mirrorService.sendMessage(null, userMessage.content, "request-fallback", {}, (text) => deltas.push(text));
-        expect(mocks.processMessageStream).toHaveBeenCalledWith("conversation-1", "message-user", expect.any(Function));
-        expect(mocks.processMessage).toHaveBeenCalledWith("conversation-1", "message-user");
+        expect(mocks.processMessageStream).toHaveBeenCalledWith("conversation-1", "message-user", expect.any(Function), { regenerate: false });
+        expect(mocks.processMessage).toHaveBeenCalledWith("conversation-1", "message-user", { regenerate: false });
         expect(deltas).toEqual([]);
         expect(result.assistantMessage).toEqual(assistantMessage);
+    });
+
+    it("regenerates the newest turn without inserting another user message", async () => {
+        const regenerated = { ...assistantMessage, content: "What would beginning look like?" };
+        mocks.processMessageStream.mockImplementation(async (_conversationId: string, _userMessageId: string, onDelta: (text: string) => void) => {
+            onDelta("What would beginning");
+            return {
+                conversationId: "conversation-1",
+                response: { response: { text: regenerated.content }, followUp: null },
+                assistantMessage: regenerated,
+                observable: true,
+            };
+        });
+        const deltas: string[] = [];
+        const result = await mirrorService.regenerateReply({ conversationId: "conversation-1", userMessage }, (text) => deltas.push(text));
+
+        expect(mocks.processMessageStream).toHaveBeenCalledWith("conversation-1", "message-user", expect.any(Function), { regenerate: true });
+        expect(mocks.saveUserMessage).not.toHaveBeenCalled();
+        // The user turn is unchanged, so its observations are not re-extracted.
+        expect(mocks.processObservations).not.toHaveBeenCalled();
+        expect(deltas).toEqual(["What would beginning"]);
+        expect(result.assistantMessage).toEqual(regenerated);
+        expect(result.userMessage).toEqual(userMessage);
+    });
+
+    it("reports a failed regeneration as failed instead of pretending it worked", async () => {
+        mocks.processMessage.mockRejectedValue(new Error("provider failed"));
+        const result = await mirrorService.regenerateReply({ conversationId: "conversation-1", userMessage });
+
+        expect(result.assistantMessage).toBeNull();
+        expect(result.processingError?.code).toBe("AI_UNAVAILABLE");
+        expect(result.processingError?.message).toBe("Aks couldn't refresh that response. The previous one is still here.");
+        expect(result.processingError?.retryable).toBe(true);
     });
 
     it("preserves the check-in and voice boundaries", async () => {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { ArrowLeft01Icon, CheckmarkCircle01Icon } from "@hugeicons/core-free-icons";
@@ -8,6 +8,8 @@ import { useResolveClassNames } from "uniwind";
 import AppText from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
 import IconButton from "@/components/ui/IconButton";
+import { useBottomSheet } from "@/components/ui/BottomSheetProvider";
+import { copy } from "@/constants/copy";
 
 type Props = {
     headerTitle: string;
@@ -24,6 +26,7 @@ type Props = {
 export default function ProfilePreferenceScreen({ headerTitle, eyebrow, title, description, options, selections: storedSelections, multiple = false, onSave, onBack }: Props) {
     const [selections, setSelections] = useState<string[]>([...storedSelections]);
     const [saving, setSaving] = useState(false);
+    const { notice } = useBottomSheet();
     const iconColor = useResolveClassNames("text-text-medium").color;
     const activeColor = useResolveClassNames("text-primary").color;
 
@@ -35,7 +38,7 @@ export default function ProfilePreferenceScreen({ headerTitle, eyebrow, title, d
             await onSave(selections);
             onBack();
         } catch {
-            Alert.alert("Unable to save preferences", "Check your connection and try again.");
+            notice(copy.profilePreference.notices.unableToSave, copy.common.checkConnection);
         } finally {
             setSaving(false);
         }
@@ -65,11 +68,11 @@ export default function ProfilePreferenceScreen({ headerTitle, eyebrow, title, d
                     })}
                 </Animated.View>
                 <Animated.View entering={FadeInUp.duration(450).delay(220)} className="mt-6 rounded-[28px] border border-border bg-surface p-5">
-                    <AppText variant="caption" className="tracking-[1.5px] text-text-low">SAVED ON THIS DEVICE</AppText>
-                    <AppText className="mt-3 leading-6 text-text-low">These selections are local placeholders until profile storage is connected.</AppText>
+                    <AppText variant="caption" className="tracking-[1.5px] text-text-low">{copy.profilePreference.noteCaption}</AppText>
+                    <AppText className="mt-3 leading-6 text-text-low">{copy.profilePreference.noteBody}</AppText>
                 </Animated.View>
-                <Button onPress={() => void save()} loading={saving} className="mt-6" accessibilityLabel={`Save ${headerTitle}`}>
-                    <AppText variant="button" className="text-primary-foreground">Save preferences</AppText>
+                <Button onPress={() => void save()} loading={saving} className="mt-6" accessibilityLabel={copy.profilePreference.saveA11y(headerTitle)}>
+                    <AppText variant="button" className="text-primary-foreground">{copy.profilePreference.saveAction}</AppText>
                 </Button>
             </ScrollView>
         </View>

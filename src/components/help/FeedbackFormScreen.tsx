@@ -6,7 +6,6 @@ import {
     TextInput,
     View,
 } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import Animated, {
     FadeIn,
     FadeInDown,
@@ -22,6 +21,7 @@ import { useResolveClassNames } from "uniwind";
 import AppText from "@/components/ui/Text";
 import Button from "@/components/ui/Button";
 import IconButton from "@/components/ui/IconButton";
+import { copy } from "@/constants/copy";
 
 type FeedbackFormScreenProps = {
     headerTitle: string;
@@ -73,6 +73,8 @@ export default function FeedbackFormScreen({
 
     const textHigh = useResolveClassNames("text-text-high");
     const textMedium = useResolveClassNames("text-text-medium");
+    const primaryForeground = useResolveClassNames("text-primary-foreground");
+    const placeholderColor = useResolveClassNames("text-text-disabled").color;
     const canSubmit =
         (!requireOption || selectedOption !== null) &&
         message.trim().length >= minimumMessageLength;
@@ -90,7 +92,6 @@ export default function FeedbackFormScreen({
 
     return (
         <KeyboardAvoidingView behavior="padding" className="flex-1 bg-background">
-            <StatusBar style="dark" />
 
             <Animated.View
                 entering={FadeIn.duration(400)}
@@ -150,7 +151,7 @@ export default function FeedbackFormScreen({
                             variant="caption"
                             className={selectedOption ? "text-text-high" : "text-text-disabled"}
                         >
-                            {selectedOption && requireOption ? "Selected" : optionHint}
+                            {selectedOption && requireOption ? copy.feedbackForm.selectedState : optionHint}
                         </AppText>
                     </View>
 
@@ -172,7 +173,7 @@ export default function FeedbackFormScreen({
                                         <HugeiconsIcon
                                             icon={CheckmarkCircle01Icon}
                                             size={15}
-                                            color="#FFFFFF"
+                                            color={primaryForeground.color}
                                             strokeWidth={1.9}
                                         />
                                     ) : null}
@@ -206,7 +207,7 @@ export default function FeedbackFormScreen({
                         </AppText>
 
                         <AppText variant="caption" className="text-text-disabled">
-                            {message.length}/1000
+                            {message.length}/{copy.feedbackForm.charLimit}
                         </AppText>
                     </View>
 
@@ -215,10 +216,10 @@ export default function FeedbackFormScreen({
                             value={message}
                             onChangeText={setMessage}
                             multiline
-                            maxLength={1000}
+                            maxLength={copy.feedbackForm.charLimit}
                             textAlignVertical="top"
                             placeholder={messagePlaceholder}
-                            placeholderTextColor="#A3A3A3"
+                            placeholderTextColor={placeholderColor}
                             className="min-h-44 px-4 py-4 text-[16px] leading-6 text-text-high"
                         />
 
@@ -238,9 +239,9 @@ export default function FeedbackFormScreen({
                         variant="caption"
                         className="mb-3 text-[10px] tracking-[1.8px] text-text-low"
                     >
-                        CONTACT EMAIL
+                        {copy.feedbackForm.contactEmail}
                         <AppText variant="caption" className="text-text-disabled">
-                            {" "}OPTIONAL
+                            {copy.feedbackForm.optionalMark}
                         </AppText>
                     </AppText>
 
@@ -251,8 +252,8 @@ export default function FeedbackFormScreen({
                         autoCorrect={false}
                         keyboardType="email-address"
                         textContentType="emailAddress"
-                        placeholder="you@example.com"
-                        placeholderTextColor="#A3A3A3"
+                        placeholder={copy.feedbackForm.emailPlaceholder}
+                        placeholderTextColor={placeholderColor}
                         className="h-14 rounded-2xl border border-border bg-surface px-4 text-[16px] text-text-high"
                     />
 

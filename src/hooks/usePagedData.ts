@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { copy } from "@/constants/copy";
 import type { Page, PageOptions } from "@/types/data";
 
 export function usePagedData<T>(loader: (options: PageOptions) => Promise<Page<T>>) {
@@ -29,7 +30,7 @@ export function usePagedData<T>(loader: (options: PageOptions) => Promise<Page<T
             setItems(result.items);
             setHasMore(result.hasMore);
         } catch {
-            if (request === requestRef.current) setError("We couldn't load this data. Please try again.");
+            if (request === requestRef.current) setError(copy.errors.pagedData);
         } finally {
             if (request === requestRef.current) setLoading(false);
         }

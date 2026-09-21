@@ -18,6 +18,7 @@ import Animated, {
 
 import AppText from "@/components/ui/Text";
 import { cn } from "@/lib/cn";
+import { useResolveClassNames } from "uniwind";
 
 type ButtonVariant = "filled" | "outline";
 
@@ -88,6 +89,9 @@ export default function AnimatedButton({
     : "text-primary-foreground";
 
   const defaultBorder = "border-primary";
+
+  const filledForeground = useResolveClassNames("text-primary-foreground").color;
+  const outlineForeground = useResolveClassNames("text-primary").color;
 
   const handlePressIn = (event: GestureResponderEvent) => {
     if (disabled || loading) return;
@@ -178,7 +182,7 @@ export default function AnimatedButton({
         {loading ? (
           <ActivityIndicator
             size="small"
-            color={isFilled ? "#FFFFFF" : "#171717"}
+            color={isFilled ? filledForeground : outlineForeground}
           />
         ) : (
           <AppText

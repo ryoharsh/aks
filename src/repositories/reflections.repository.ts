@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import type { Database, Json } from "@/types/database";
 import type { Page, PageOptions, Reflection } from "@/types/data";
+import { copy } from "@/constants/copy";
 import { requireAuthenticatedUser, throwDataError } from "./data.repository";
 import { pageRange } from "./pagination";
 
@@ -11,7 +12,7 @@ export const reflectionsRepository = {
     async create(content: string, metadata: Json = {}) {
         await requireAuthenticatedUser();
         const { data, error } = await supabase.from("reflections").insert({ content: content.trim(), metadata }).select().single();
-        if (error) throwDataError(error, "We couldn't save that reflection.");
+        if (error) throwDataError(error, copy.errors.writes.reflection);
         return mapReflection(data);
     },
     async get(id: string) {

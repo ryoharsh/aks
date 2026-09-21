@@ -3,9 +3,6 @@ import { Directory, File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 
 import { supabase } from "@/lib/supabase";
-import type { Database } from "@/types/database";
-
-export type DataSource = Database["public"]["Tables"]["data_sources"]["Row"];
 
 export type ExportResult = {
     fileName: string;
@@ -79,18 +76,6 @@ async function downloadOnNative(url: string, fileName: string): Promise<void> {
 }
 
 export const privacyService = {
-    async listDataSources(userId: string): Promise<DataSource[]> {
-        const { data, error } = await supabase
-            .from("data_sources")
-            .select("*")
-            .eq("user_id", userId)
-            .order("connected_at", { ascending: false });
-        if (error) {
-            throw new PrivacyError("Couldn't load your connected sources. Please try again.", true);
-        }
-        return (data ?? []).map((row) => ({ ...row }));
-    },
-
     async requestExport(): Promise<ExportResult> {
         const result = await invokeOnce<ExportResult>("export-data");
         if (!result || typeof result.url !== "string" || typeof result.fileName !== "string" || typeof result.expiresAt !== "string") {

@@ -2,15 +2,33 @@ import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
-    cancelAnimation,
     Easing,
+    cancelAnimation,
     useAnimatedStyle,
     useSharedValue,
-    withRepeat,
     withTiming,
 } from "react-native-reanimated";
+import { useUniwind } from "uniwind";
+
+import { startPulse } from "@/lib/motion";
 
 const AnimatedGradient = Animated.createAnimatedComponent(LinearGradient);
+
+type AmbientPalette = readonly [string, string, string, string, string];
+
+const lightPalettes: readonly AmbientPalette[] = [
+    ["#FFFFFF", "#FFF1E6", "#FDE8F3", "#ECE9FF", "#FFFFFF"],
+    ["#F0ECFF", "#FFFFFF", "#FFE8DC", "#FFDFF0", "#FFFFFF"],
+    ["#FFFFFF", "#FDE3ED", "#EAE6FF", "#FFF0DD", "#FFFFFF"],
+    ["#E6F5FF", "#FFFFFF", "#F5E6FF", "#FFF6E0", "#FFFFFF"],
+];
+
+const darkPalettes: readonly AmbientPalette[] = [
+    ["#1C1C20", "#2B1F18", "#2A1E25", "#1F1D2B", "#1C1C20"],
+    ["#1F1D2B", "#1C1C20", "#2A1D17", "#291A23", "#1C1C20"],
+    ["#1C1C20", "#291C23", "#1F1D2B", "#291F15", "#1C1C20"],
+    ["#17202B", "#1C1C20", "#241B2B", "#292117", "#1C1C20"],
+];
 
 export default function AnimatedAmbientBackground({
     active = true,
@@ -21,6 +39,10 @@ export default function AnimatedAmbientBackground({
     /** Fade the layer in from opacity 0 when first mounted (smooth entry). */
     fadeIn?: boolean;
 } = {}) {
+    const { theme } = useUniwind();
+    const palettes = theme === "dark" ? darkPalettes : lightPalettes;
+    const baseColor = theme === "dark" ? "#16161A" : "#FFFFFF";
+
     const p1 = useSharedValue(0);
     const p2 = useSharedValue(0);
     const p3 = useSharedValue(0);
@@ -28,26 +50,11 @@ export default function AnimatedAmbientBackground({
 
     useEffect(() => {
         if (!active) return;
-        p1.value = withRepeat(
-            withTiming(1, { duration: 18000, easing: Easing.inOut(Easing.sin) }),
-            -1,
-            true,
-        );
-        p2.value = withRepeat(
-            withTiming(1, { duration: 23000, easing: Easing.inOut(Easing.sin) }),
-            -1,
-            true,
-        );
-        p3.value = withRepeat(
-            withTiming(1, { duration: 20000, easing: Easing.inOut(Easing.sin) }),
-            -1,
-            true,
-        );
-        p4.value = withRepeat(
-            withTiming(1, { duration: 26000, easing: Easing.inOut(Easing.sin) }),
-            -1,
-            true,
-        );
+        const sway = Easing.inOut(Easing.sin);
+        startPulse(p1, 1, 18000, sway);
+        startPulse(p2, 1, 23000, sway);
+        startPulse(p3, 1, 20000, sway);
+        startPulse(p4, 1, 26000, sway);
         return () => {
             cancelAnimation(p1);
             cancelAnimation(p2);
@@ -112,31 +119,31 @@ export default function AnimatedAmbientBackground({
 
     return (
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, layerStyle]}>
-            <View style={styles.base} />
+            <View style={[styles.base, { backgroundColor: baseColor }]} />
 
             <AnimatedGradient
-                colors={["#FFFFFF", "#FFF1E6", "#FDE8F3", "#ECE9FF", "#FFFFFF"]}
+                colors={palettes[0]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={[styles.gradient, firstStyle]}
             />
 
             <AnimatedGradient
-                colors={["#F0ECFF", "#FFFFFF", "#FFE8DC", "#FFDFF0", "#FFFFFF"]}
+                colors={palettes[1]}
                 start={{ x: 1, y: 0 }}
                 end={{ x: 0, y: 1 }}
                 style={[styles.gradient, secondStyle]}
             />
 
             <AnimatedGradient
-                colors={["#FFFFFF", "#FDE3ED", "#EAE6FF", "#FFF0DD", "#FFFFFF"]}
+                colors={palettes[2]}
                 start={{ x: 0, y: 1 }}
                 end={{ x: 1, y: 0 }}
                 style={[styles.gradient, thirdStyle]}
             />
 
             <AnimatedGradient
-                colors={["#E6F5FF", "#FFFFFF", "#F5E6FF", "#FFF6E0", "#FFFFFF"]}
+                colors={palettes[3]}
                 start={{ x: 1, y: 1 }}
                 end={{ x: 0, y: 0 }}
                 style={[styles.gradient, fourthStyle]}
@@ -148,7 +155,6 @@ export default function AnimatedAmbientBackground({
 const styles = StyleSheet.create({
     base: {
         ...StyleSheet.absoluteFill,
-        backgroundColor: "#FFFFFF",
     },
     gradient: {
         position: "absolute",

@@ -1,6 +1,5 @@
 import React from "react";
 import { Linking, Pressable, ScrollView, View } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Animated, {
     FadeIn,
@@ -22,10 +21,12 @@ import {
     Bug01Icon,
     SparklesIcon,
 } from "@hugeicons/core-free-icons";
+import { useResolveClassNames } from "uniwind";
 
 import AppText from "@/components/ui/Text";
 import IconButton from "@/components/ui/IconButton";
 import type { HelpFeedbackStackParamList } from "@/navigation/routes";
+import { copy } from "@/constants/copy";
 
 type Props = NativeStackScreenProps<
     HelpFeedbackStackParamList,
@@ -45,17 +46,21 @@ function ActionItem({
     description,
     onPress,
 }: ActionItemProps) {
+    const iconColor = useResolveClassNames("text-text-medium").color;
+    const arrowColor = useResolveClassNames("text-text-low").color;
+    const rippleColor = useResolveClassNames("bg-border").color;
+
     return (
         <Pressable
             onPress={onPress}
-            android_ripple={{ color: "#E5E5E5" }}
+            android_ripple={{ color: rippleColor }}
             className="flex-row items-center border-b border-border py-5 active:opacity-80"
         >
             <View className="mr-4 h-11 w-11 items-center justify-center rounded-2xl bg-surface">
                 <HugeiconsIcon
                     icon={icon}
                     size={21}
-                    color="#525252"
+                    color={iconColor}
                     strokeWidth={1.8}
                 />
             </View>
@@ -79,7 +84,7 @@ function ActionItem({
             <HugeiconsIcon
                 icon={ArrowRight01Icon}
                 size={18}
-                color="#737373"
+                color={arrowColor}
                 strokeWidth={1.6}
             />
         </Pressable>
@@ -94,10 +99,13 @@ export default function HelpFeedbackScreen({
             "mailto:support@aks.ai?subject=Aks%20Support"
         );
     };
+    const iconColor = useResolveClassNames("text-text-medium").color;
+    const highColor = useResolveClassNames("text-text-high").color;
+    const arrowColor = useResolveClassNames("text-text-low").color;
+    const rippleColor = useResolveClassNames("bg-border").color;
 
     return (
         <View className="flex-1 bg-background">
-            <StatusBar style="dark" />
 
             <Animated.View
                 entering={FadeIn.duration(400)}
@@ -117,7 +125,7 @@ export default function HelpFeedbackScreen({
                     variant="title"
                     className="text-text-high"
                 >
-                    Help & feedback
+                    {copy.helpHome.header}
                 </AppText>
             </Animated.View>
 
@@ -133,15 +141,14 @@ export default function HelpFeedbackScreen({
                         variant="display"
                         className="font-satoshi-medium text-text-high"
                     >
-                        We're listening.
+                        {copy.helpHome.title}
                     </AppText>
 
                     <AppText
                         variant="body"
                         className="mt-3 max-w-82.5 text-text-low"
                     >
-                        Something not working, something confusing, or
-                        something you wish Aks could do?
+                        {copy.helpHome.description}
                     </AppText>
                 </Animated.View>
 
@@ -155,7 +162,7 @@ export default function HelpFeedbackScreen({
                                 <HugeiconsIcon
                                     icon={Chat01Icon}
                                     size={22}
-                                    color="#171717"
+                                    color={highColor}
                                     strokeWidth={1.8}
                                 />
                             </View>
@@ -165,14 +172,14 @@ export default function HelpFeedbackScreen({
                                     variant="title"
                                     className="text-text-high"
                                 >
-                                    Need a hand?
+                                    {copy.helpHome.supportTitle}
                                 </AppText>
 
                                 <AppText
                                     variant="caption"
                                     className="mt-1 text-text-low"
                                 >
-                                    Our support team is here to help.
+                                    {copy.helpHome.supportBody}
                                 </AppText>
                             </View>
                         </View>
@@ -186,7 +193,7 @@ export default function HelpFeedbackScreen({
                                 variant="button"
                                 className="text-primary-foreground"
                             >
-                                Contact support
+                                {copy.helpHome.supportAction}
                             </AppText>
                         </Pressable>
                     </View>
@@ -200,14 +207,14 @@ export default function HelpFeedbackScreen({
                         variant="caption"
                         className="mb-3 text-[10px] tracking-[1.8px] text-text-low"
                     >
-                        GET HELP
+                        {copy.helpHome.getHelpSection}
                     </AppText>
 
                     <View className="border-t border-border">
                         <ActionItem
                             icon={MessageQuestionIcon}
-                            title="Frequently asked questions"
-                            description="Find quick answers to common questions"
+                            title={copy.helpHome.faqTitle}
+                            description={copy.helpHome.faqDescription}
                             onPress={() =>
                                 navigation.navigate("FAQ")
                             }
@@ -215,8 +222,8 @@ export default function HelpFeedbackScreen({
 
                         <ActionItem
                             icon={Bug01Icon}
-                            title="Report a problem"
-                            description="Tell us when something isn't working"
+                            title={copy.helpHome.reportTitle}
+                            description={copy.helpHome.reportDescription}
                             onPress={() =>
                                 navigation.navigate("ReportProblem")
                             }
@@ -232,14 +239,14 @@ export default function HelpFeedbackScreen({
                         variant="caption"
                         className="mb-3 text-[10px] tracking-[1.8px] text-text-low"
                     >
-                        MAKE AKS BETTER
+                        {copy.helpHome.improveSection}
                     </AppText>
 
                     <View className="border-t border-border">
                         <ActionItem
                             icon={LightbulbIcon}
-                            title="Suggest an idea"
-                            description="Tell us what you'd like Aks to learn or do"
+                            title={copy.helpHome.suggestTitle}
+                            description={copy.helpHome.suggestDescription}
                             onPress={() =>
                                 navigation.navigate("SendFeedback")
                             }
@@ -247,8 +254,8 @@ export default function HelpFeedbackScreen({
 
                         <ActionItem
                             icon={SparklesIcon}
-                            title="Share your experience"
-                            description="Tell us what feels great or could be better"
+                            title={copy.helpHome.shareTitle}
+                            description={copy.helpHome.shareDescription}
                             onPress={() =>
                                 navigation.navigate("SendFeedback")
                             }
@@ -264,46 +271,46 @@ export default function HelpFeedbackScreen({
                         variant="caption"
                         className="mb-3 text-[10px] tracking-[1.8px] text-text-low"
                     >
-                        CONTACT
+                        {copy.helpHome.contactSection}
                     </AppText>
 
-                    <Pressable
-                        onPress={openEmail}
-                        android_ripple={{ color: "#E5E5E5" }}
-                        className="flex-row items-center border-t border-border py-5 active:opacity-80"
-                    >
-                        <View className="mr-4 h-11 w-11 items-center justify-center rounded-2xl bg-surface">
+<Pressable
+                            onPress={openEmail}
+                            android_ripple={{ color: rippleColor }}
+                            className="flex-row items-center border-t border-border py-5 active:opacity-80"
+                        >
+                            <View className="mr-4 h-11 w-11 items-center justify-center rounded-2xl bg-surface">
+                                <HugeiconsIcon
+                                    icon={Mail01Icon}
+                                    size={21}
+                                    color={iconColor}
+                                    strokeWidth={1.8}
+                                />
+                            </View>
+
+                            <View className="flex-1">
+                                <AppText
+                                    variant="button"
+                                    className="text-text-high"
+                                >
+                                    {copy.helpHome.supportEmail}
+                                </AppText>
+
+                                <AppText
+                                    variant="caption"
+                                    className="mt-1 text-text-low"
+                                >
+                                    {copy.helpHome.supportResponse}
+                                </AppText>
+                            </View>
+
                             <HugeiconsIcon
-                                icon={Mail01Icon}
-                                size={21}
-                                color="#525252"
-                                strokeWidth={1.8}
+                                icon={ArrowRight01Icon}
+                                size={18}
+                                color={arrowColor}
+                                strokeWidth={1.6}
                             />
-                        </View>
-
-                        <View className="flex-1">
-                            <AppText
-                                variant="button"
-                                className="text-text-high"
-                            >
-                                support@aks.ai
-                            </AppText>
-
-                            <AppText
-                                variant="caption"
-                                className="mt-1 text-text-low"
-                            >
-                                Usually replies within 1–2 business days
-                            </AppText>
-                        </View>
-
-                        <HugeiconsIcon
-                            icon={ArrowRight01Icon}
-                            size={18}
-                            color="#737373"
-                            strokeWidth={1.6}
-                        />
-                    </Pressable>
+                        </Pressable>
                 </Animated.View>
 
                 <Animated.View
@@ -311,14 +318,14 @@ export default function HelpFeedbackScreen({
                     className="mt-10 items-center"
                 >
                     <AppText className="text-[13px] font-medium text-text-disabled">
-                        Aks.ai
+                        {copy.brand.name}
                     </AppText>
 
                     <AppText
                         variant="caption"
                         className="mt-1 text-text-disabled"
                     >
-                        Version 1.0.0
+                        {copy.common.version(copy.helpHome.footerVersion)}
                     </AppText>
                 </Animated.View>
             </ScrollView>

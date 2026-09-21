@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { copy } from "@/constants/copy";
 import { usePagedData } from "./usePagedData";
 import { dataEvents } from "@/services/dataEvents";
 import { learningsService } from "@/services/learnings.service";
@@ -26,7 +27,7 @@ export function useLearning(id: string) {
         try {
             const [nextLearning, nextEvidence] = await Promise.all([learningsService.getLearning(id), learningsService.listLearningEvidence(id)]);
             if (current === request.current) { setLearning(nextLearning); setEvidence(nextEvidence); }
-        } catch { if (current === request.current) setError("We couldn't load this learning."); }
+        } catch { if (current === request.current) setError(copy.errors.learning); }
         finally { if (current === request.current) setLoading(false); }
     }, [id]);
     useEffect(() => { void refresh(); return () => { request.current += 1; }; }, [refresh]);

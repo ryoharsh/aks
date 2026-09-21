@@ -1,0 +1,16 @@
+{
+  "platforms": [
+    "android",
+    "apple"
+  ],
+  "android": {
+    "modules": [
+      "com.aks.realtimeaudio.AksRealtimeAudioModule"
+    ]
+  },
+  "apple": {
+    "modules": [
+      "AksRealtimeAudioModule"
+    ]
+  }
+}

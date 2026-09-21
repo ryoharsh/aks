@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/types/database";
 import type { Memory, MemoryEvidence, Page, PageOptions } from "@/types/data";
+import { copy } from "@/constants/copy";
 import { requireAuthenticatedUser, throwDataError } from "./data.repository";
 import { pageRange } from "./pagination";
 
@@ -56,11 +57,11 @@ export const memoriesRepository = {
     async archive(id: string) {
         await requireAuthenticatedUser();
         const { data, error } = await supabase.rpc("archive_memory", { target_memory_id: id });
-        if (error || !data) throwDataError(error, "We couldn't archive this memory.");
+        if (error || !data) throwDataError(error, copy.errors.writes.archiveMemory);
     },
     async delete(id: string) {
         await requireAuthenticatedUser();
         const { data, error } = await supabase.rpc("delete_memory", { target_memory_id: id });
-        if (error || !data) throwDataError(error, "We couldn't remove this memory.");
+        if (error || !data) throwDataError(error, copy.errors.writes.removeMemory);
     },
 };

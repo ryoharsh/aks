@@ -13,6 +13,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { cn } from "@/lib/cn";
+import { useResolveClassNames } from "uniwind";
 
 type ButtonVariant = "primary" | "secondary" | "ghost";
 
@@ -44,6 +45,7 @@ export default function Button({
     ...props
 }: ButtonProps) {
     const isDisabled = disabled || loading;
+    const foregroundColor = useResolveClassNames("text-primary-foreground").color;
 
     const scale = useSharedValue(1);
 
@@ -101,7 +103,7 @@ export default function Button({
         >
             {loading ? (
                 <ActivityIndicator
-                    color="#FFFFFF"
+                    color={foregroundColor}
                 />
             ) : (
                 <View className="flex-row items-center justify-center">

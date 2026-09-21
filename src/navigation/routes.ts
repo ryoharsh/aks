@@ -5,6 +5,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Auth: undefined;
   LegalAcceptance: undefined;
+  SubscriptionRequired: undefined;
   Main: undefined;
   AiConversation: { conversationId?: string } | undefined;
   Terms: undefined;

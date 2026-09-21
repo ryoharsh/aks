@@ -6,6 +6,7 @@ import { useResolveClassNames } from "uniwind";
 
 import AppText from "@/components/ui/Text";
 import IconButton from "@/components/ui/IconButton";
+import { copy } from "@/constants/copy";
 
 type DetailItem = {
     label: string;
@@ -65,7 +66,7 @@ export default function SettingsDetailScreen({
                 </Animated.View>
 
                 <Animated.View entering={FadeInUp.duration(450).delay(220)} className="mt-6 rounded-[28px] border border-border bg-surface p-5">
-                    <AppText variant="caption" className="tracking-[1.5px] text-text-low">A NOTE FROM AKS</AppText>
+                    <AppText variant="caption" className="tracking-[1.5px] text-text-low">{copy.dataCategory.noteCaption}</AppText>
                     <AppText className="mt-3 leading-6 text-text-low">{note}</AppText>
                 </Animated.View>
             </ScrollView>

@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
     getSession: vi.fn(),
     streamingFetch: vi.fn(),
+    invoke: vi.fn(),
 }));
 
 vi.mock("expo/fetch", () => ({ fetch: mocks.streamingFetch }));
 vi.mock("@/lib/supabase", () => ({
-    supabase: { auth: { getSession: mocks.getSession }, functions: { invoke: vi.fn() } },
+    supabase: { auth: { getSession: mocks.getSession }, functions: { invoke: mocks.invoke } },
     supabaseUrl: "https://test.supabase.co",
+    assertSupabaseConfigured: () => undefined,
 }));
 
 import { MirrorRepositoryError, mirrorRepository } from "./mirror.repository";
@@ -118,5 +120,44 @@ describe("mirror repository stream", () => {
         await expect(mirrorRepository.processMessageStream("conversation-1", "message-user", () => undefined))
             .rejects.toBeInstanceOf(MirrorRepositoryError);
         expect(mocks.streamingFetch).not.toHaveBeenCalled();
+    });
+});
+
+describe("mirror repository turn options", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mocks.getSession.mockResolvedValue({ data: { session: { access_token: "token" } }, error: null });
+    });
+
+    const sentBody = () => JSON.parse(mocks.streamingFetch.mock.calls[0][1].body);
+
+    it("sends the language the app is displaying", async () => {
+        mocks.streamingFetch.mockResolvedValue(sseResponse([doneEvent]));
+        await mirrorRepository.processMessageStream("conversation-1", "message-user", () => undefined, { language: "hi" });
+        expect(sentBody()).toMatchObject({ conversationId: "conversation-1", language: "hi" });
+    });
+
+    it("omits the language when the caller has none, so the server keeps the stored one", async () => {
+        mocks.streamingFetch.mockResolvedValue(sseResponse([doneEvent]));
+        await mirrorRepository.processMessageStream("conversation-1", "message-user", () => undefined);
+        expect(sentBody().language).toBeUndefined();
+    });
+
+    it("sends the language on the non-streaming fallback too", async () => {
+        mocks.invoke.mockResolvedValue({
+            data: {
+                conversationId: "conversation-1",
+                response: { response: { text: "Hello world" }, followUp: null },
+                assistantMessage,
+                signalsSaved: 0,
+                signals: [],
+                memoryCandidates: [],
+                patternActions: [],
+                observable: true,
+            },
+            error: null,
+        });
+        await mirrorRepository.processMessage("conversation-1", "message-user", { language: "ur" });
+        expect(mocks.invoke).toHaveBeenCalledWith("mirror", { body: expect.objectContaining({ language: "ur" }) });
     });
 });

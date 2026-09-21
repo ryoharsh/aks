@@ -26,6 +26,10 @@ export type RealtimeConversationDeps = {
 const DEFAULT_RECONNECT = { maxAttempts: 4, baseDelayMs: 500 };
 const MAX_RECONNECT_DELAY_MS = 8000;
 
+// __DEV__ is a React Native global; the typeof guard keeps this module safe
+// under unit tests where the global does not exist.
+const isDev = typeof __DEV__ !== "undefined" && __DEV__;
+
 function wait(durationMs: number) {
     return new Promise((resolve) => setTimeout(resolve, durationMs));
 }
@@ -50,6 +54,7 @@ export function createRealtimeConversationSession(deps: RealtimeConversationDeps
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let assistantText = "";
     let userTranscript = "";
+    let assistantAudioEnabled = true;
 
     const emit = (event: RealtimeEvent) => {
         listeners.forEach((listener) => listener(event));
@@ -89,6 +94,7 @@ export function createRealtimeConversationSession(deps: RealtimeConversationDeps
                 }
             },
             (error) => {
+                if (isDev) console.error("[AksRealtime] native audio error:", error);
                 emit({
                     type: "error",
                     code: "REALTIME_AUDIO_UNAVAILABLE",
@@ -110,21 +116,39 @@ export function createRealtimeConversationSession(deps: RealtimeConversationDeps
             throw new MirrorRealtimeError("REALTIME_TRANSPORT_UNAVAILABLE", false, realTimeErrorMessage("REALTIME_TRANSPORT_UNAVAILABLE"));
         }
 
+        let loggedWsMessages = 0;
         unsubscribeMessage = transport.onMessage((raw) => {
+            if (isDev && loggedWsMessages < 8) {
+                loggedWsMessages += 1;
+                const keys = raw && typeof raw === "object" ? Object.keys(raw as Record<string, unknown>) : typeof raw;
+                console.log("[AksRealtime] ws message keys:", keys);
+            }
             if (!protocol) return;
             for (const event of protocol.parse(raw)) apply(event);
         });
         unsubscribeClose = transport.onClose((info) => {
+            if (isDev) console.log("[AksRealtime] transport closed:", { code: info.code, reason: info.reason, wasClean: info.wasClean });
             if (stoppedByUser || state === "ended" || state === "ending") return;
             if (info.wasClean) return;
             void handleUnexpectedClose();
         });
-        unsubscribeError = transport.onError(() => {
+        unsubscribeError = transport.onError((socketError) => {
             if (stoppedByUser || state === "ended") return;
+            if (isDev) console.error("[AksRealtime] realtime transport error:", socketError);
             emit({ type: "error", code: "REALTIME_PROVIDER_ERROR", message: realTimeErrorMessage("REALTIME_PROVIDER_ERROR"), retryable: true });
         });
 
         activeSpec = spec;
+        if (isDev) {
+            console.log("[AksRealtime] provider session:", {
+                provider: spec.provider,
+                protocol: spec.protocol,
+                transport: spec.transport,
+                inputSampleRate: spec.inputSampleRate,
+                outputSampleRate: spec.outputSampleRate,
+                pcmFormat: spec.pcmFormat,
+            });
+        }
         await transport.connect(spec);
         send(protocol.build({ type: "sessionStart" }));
         await requireAudio().startPlayback(spec.outputSampleRate);
@@ -186,12 +210,12 @@ export function createRealtimeConversationSession(deps: RealtimeConversationDeps
                 emit(event);
                 return;
             case "assistantAudioChunk":
-                requireAudio().enqueuePcm(event.pcmBase64, activeSpec?.outputSampleRate ?? 24000);
+                if (assistantAudioEnabled) requireAudio().enqueuePcm(event.pcmBase64, activeSpec?.outputSampleRate ?? 24000);
                 emit(event);
                 return;
             case "assistantAudioFinished":
                 emit(event);
-                void requireAudio().flushPlayback();
+                if (assistantAudioEnabled) void requireAudio().flushPlayback();
                 return;
             case "assistantInterrupted":
                 assistantText = "";
@@ -249,6 +273,7 @@ export function createRealtimeConversationSession(deps: RealtimeConversationDeps
         try {
             await openSession();
         } catch (error) {
+            if (isDev) console.error("[AksRealtime] voice startup failed:", error);
             if (error instanceof MirrorRealtimeError) {
                 emit({ type: "error", code: error.code, message: error.message, retryable: error.retryable });
             } else {
@@ -302,6 +327,17 @@ export function createRealtimeConversationSession(deps: RealtimeConversationDeps
         assistantText = "";
         state = state === "thinking" ? "userSpeaking" : "listening";
         emit({ type: "assistantInterrupted" });
+    };
+
+    const setAssistantAudioEnabled = (enabled: boolean) => {
+        assistantAudioEnabled = enabled;
+        if (!enabled) {
+            try {
+                requireAudio().interruptPlayback();
+            } catch {
+                // Playback has not started yet; nothing to silence.
+            }
+        }
     };
 
     const stop = async () => {
@@ -361,6 +397,7 @@ export function createRealtimeConversationSession(deps: RealtimeConversationDeps
         },
         start,
         interrupt,
+        setAssistantAudioEnabled,
         stop,
         dispose,
     };

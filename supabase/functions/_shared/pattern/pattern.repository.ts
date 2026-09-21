@@ -10,6 +10,9 @@ function stableValue(value: unknown) {
 export function createPatternRepository(userClient: SupabaseClient, adminClient: SupabaseClient, userId: string) {
     return {
         async countSignals(signalTypes: string[], before: string) {
+            // Historical evidence gate — exact counts over ALL signals up to
+            // `before`, deliberately NOT bounded by Mirror's recent-8 reply
+            // context. Thresholds unchanged.
             const counts = await Promise.all(signalTypes.map(async (signalType) => {
                 const { count, error } = await userClient.from("signals").select("id", { count: "exact", head: true }).eq("signal_type", signalType).lte("observed_at", before);
                 if (error) throw new Error("PATTERN_CONTEXT_UNAVAILABLE");
@@ -18,6 +21,8 @@ export function createPatternRepository(userClient: SupabaseClient, adminClient:
             return Object.fromEntries(counts) as Record<string, number>;
         },
         async getRecentSignals(signalTypes: string[], before: string): Promise<PatternSignal[]> {
+            // Historical window for formal detection (last 6 per type, up to
+            // 6 types → up to 36 signals), NOT Mirror's bounded recent-8.
             const batches = await Promise.all(signalTypes.slice(0, 6).map(async (signalType) => {
                 const { data, error } = await userClient.from("signals").select("id, source_type, source_id, source_message_id, signal_type, value, observed_at").eq("signal_type", signalType).lte("observed_at", before).order("observed_at", { ascending: false }).limit(6);
                 if (error) throw new Error("PATTERN_CONTEXT_UNAVAILABLE");

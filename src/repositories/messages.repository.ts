@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import type { Database, Json } from "@/types/database";
 import type { Message, MessageRole, Page, PageOptions } from "@/types/data";
+import { copy } from "@/constants/copy";
 import { requireAuthenticatedUser, throwDataError } from "./data.repository";
 import { pageRange } from "./pagination";
 
@@ -26,7 +27,7 @@ export const messagesRepository = {
             .insert({ conversation_id: conversationId, role, content: content.trim(), metadata })
             .select()
             .single();
-        if (error) throwDataError(error, "We couldn't save that message.");
+        if (error) throwDataError(error, copy.errors.writes.message);
         return mapMessage(data);
     },
 

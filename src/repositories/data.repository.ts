@@ -1,7 +1,8 @@
 import { supabase } from "@/lib/supabase";
+import { copy } from "@/constants/copy";
 
 export class DataRepositoryError extends Error {
-    constructor(message = "We couldn't load your data. Please try again.") {
+    constructor(message: string = copy.errors.dataSummary) {
         super(message);
         this.name = "DataRepositoryError";
     }
@@ -10,7 +11,7 @@ export class DataRepositoryError extends Error {
 export async function requireAuthenticatedUser() {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) {
-        throw new DataRepositoryError("Please sign in to continue.");
+        throw new DataRepositoryError(copy.errors.writes.signInRequired);
     }
     return data.user;
 }

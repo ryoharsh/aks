@@ -1,6 +1,7 @@
 import { Pressable, type PressableProps } from "react-native";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { CheckIcon } from "@hugeicons/core-free-icons";
+import { useResolveClassNames } from "uniwind";
 
 import { cn } from "@/lib/cn";
 
@@ -32,6 +33,7 @@ export default function Checkbox({
     ...props
 }: CheckboxProps) {
     const dimensions = sizes[size];
+    const checkColor = useResolveClassNames("text-primary-foreground").color;
 
     return (
         <Pressable
@@ -56,7 +58,7 @@ export default function Checkbox({
                 <HugeiconsIcon
                     icon={CheckIcon}
                     size={dimensions.icon}
-                    color="#FFFFFF"
+                    color={checkColor}
                 />
             ) : null}
         </Pressable>

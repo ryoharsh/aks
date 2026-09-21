@@ -4,17 +4,36 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "base": {
+      "node": "22.23.1",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ymxyqrjtvglcsgsrlszt.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_MM4bc_gJPFVskoYjLfcBBQ_8v0_oWGH",
+        "EXPO_PUBLIC_SUPABASE_AUTH_CALLBACK_URL": "https://ymxyqrjtvglcsgsrlszt.supabase.co/functions/v1/auth-callback",
+        "EXPO_PUBLIC_AUTH_FACEBOOK_ENABLED": "false",
+        "EXPO_PUBLIC_ONESIGNAL_APP_ID": "07dae53a-3054-4051-a82c-1e389387c75e",
+        "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "test_UHusLthArhZwaxaKkvMrhqAyfYS",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "goog_dJhFCJVGdCSGCerojuaglKxhJDq",
+        "EXPO_PUBLIC_REVENUECAT_WEB_API_KEY": "test_UHusLthArhZwaxaKkvMrhqAyfYS"
+      }
+    },
     "development": {
+      "extends": "base",
       "developmentClient": true,
       "distribution": "internal"
     },
     "preview": {
+      "extends": "base",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
       }
     },
     "production": {
+      "extends": "base",
       "autoIncrement": true
     }
   },

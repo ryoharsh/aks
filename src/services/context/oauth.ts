@@ -1,7 +1,8 @@
 import { Linking } from "react-native";
 
-import { supabase, supabaseUrl } from "@/lib/supabase";
+import { supabase, supabaseUrl, assertSupabaseConfigured } from "@/lib/supabase";
 import { requireAuthenticatedUser, throwDataError } from "@/repositories/data.repository";
+import { copy } from "@/constants/copy";
 
 const supabaseAnonKey =
     process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
@@ -16,13 +17,13 @@ const supabaseAnonKey =
  */
 
 export const OAUTH_SOURCE_NAMES: Record<string, string> = {
-    google_calendar: "Google Calendar",
-    google_tasks: "Google Tasks",
-    notion: "Notion",
-    todoist: "Todoist",
-    github: "GitHub",
-    slack: "Slack",
-    email: "Email",
+    google_calendar: copy.oauth.googleCalendar,
+    google_tasks: copy.oauth.googleTasks,
+    notion: copy.oauth.notion,
+    todoist: copy.oauth.todoist,
+    github: copy.oauth.github,
+    slack: copy.oauth.slack,
+    email: copy.oauth.email,
 };
 
 let pendingSource: string | null = null;
@@ -58,7 +59,7 @@ async function handleCallbackUrl(url: string): Promise<boolean> {
             provider_account_label: payload.label,
             updated_at: new Date().toISOString(),
         }, { onConflict: "user_id,source_type" });
-    if (error) throwDataError(error, "We couldn't record that connection.");
+    if (error) throwDataError(error, copy.errors.oauthRecord);
     pendingSource = null;
     for (const listener of listeners) listener(payload.source);
     return true;
@@ -68,6 +69,11 @@ export const oauthSourceLinks = {
     /** Begin connecting an external provider. Returns false if misconfigured. */
     async connect(sourceType: string): Promise<boolean> {
         if (!OAUTH_SOURCE_NAMES[sourceType]) return false;
+        try {
+            assertSupabaseConfigured();
+        } catch {
+            return false;
+        }
         await requireAuthenticatedUser();
         pendingSource = sourceType;
         try {
@@ -105,7 +111,7 @@ export const oauthSourceLinks = {
             .delete()
             .eq("user_id", user.id)
             .eq("source_type", sourceType);
-        if (error) throwDataError(error, "We couldn't disconnect that account.");
+        if (error) throwDataError(error, copy.errors.oauthDisconnect);
     },
 
     async isLinked(sourceType: string): Promise<boolean> {

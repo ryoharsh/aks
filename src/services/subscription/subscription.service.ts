@@ -1,6 +1,9 @@
 import * as Linking from "expo-linking";
 import { Platform } from "react-native";
-import Purchases, { type PurchasesPackage } from "react-native-purchases";
+import Purchases, {
+    type CustomerInfo,
+    type PurchasesPackage,
+} from "react-native-purchases";
 
 import {
     deriveSubscriptionState,
@@ -14,6 +17,48 @@ import {
 
 let configuredApiKey: string | null = null;
 let initializedForUserId: string | null = null;
+
+export type SubscriptionCustomerInfoListener = (
+    info: CustomerInfo,
+) => void;
+
+const customerInfoListeners = new Set<SubscriptionCustomerInfoListener>();
+let sdkListenerAttached = false;
+
+function handleSdkCustomerInfo(info: CustomerInfo): void {
+    for (const listener of Array.from(customerInfoListeners)) {
+        try {
+            listener(info);
+        } catch {
+            // One bad listener must never break delivery to the rest.
+        }
+    }
+}
+
+function ensureSdkListener(): void {
+    if (sdkListenerAttached) {
+        return;
+    }
+    try {
+        Purchases.addCustomerInfoUpdateListener(handleSdkCustomerInfo);
+        sdkListenerAttached = true;
+    } catch {
+        // Listener unsupported on this platform (e.g. web fallback):
+        // foreground/manual refresh remains the update path.
+    }
+}
+
+function detachSdkListener(): void {
+    if (!sdkListenerAttached) {
+        return;
+    }
+    try {
+        Purchases.removeCustomerInfoUpdateListener(handleSdkCustomerInfo);
+    } catch {
+        // Best-effort cleanup only.
+    }
+    sdkListenerAttached = false;
+}
 
 function apiKeyForPlatform(): string | null {
     switch (Platform.OS) {
@@ -71,14 +116,18 @@ export const subscriptionService = {
             configuredApiKey = apiKey;
         }
         if (initializedForUserId === userId) {
+            ensureSdkListener();
             return;
         }
         await Purchases.logIn(userId);
         initializedForUserId = userId;
+        ensureSdkListener();
     },
 
     async disassociate(): Promise<void> {
         initializedForUserId = null;
+        customerInfoListeners.clear();
+        detachSdkListener();
         if (!configuredApiKey) {
             return;
         }
@@ -88,6 +137,23 @@ export const subscriptionService = {
             // The SDK re-anonymizes on the next cold start; logout is best-effort.
         }
         configuredApiKey = null;
+    },
+
+    /**
+     * Subscribe to live RevenueCat CustomerInfo updates (purchase, restore,
+     * renewal, cancellation, expiration). The underlying SDK listener is
+     * registered at most once; each subscriber is removed via the returned
+     * cleanup function. Callers refresh full state (CustomerInfo + offerings)
+     * when notified.
+     */
+    addCustomerInfoListener(
+        listener: SubscriptionCustomerInfoListener,
+    ): () => void {
+        customerInfoListeners.add(listener);
+        ensureSdkListener();
+        return () => {
+            customerInfoListeners.delete(listener);
+        };
     },
 
     async fetchState(): Promise<SubscriptionState> {

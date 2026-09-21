@@ -4,6 +4,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+import { requireActiveSubscription } from "../_shared/subscription/subscription.ts";
 import { buildAuthorizeUrl, OAUTH_PROVIDERS } from "../_shared/providers/oauth.ts";
 
 const headers = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Content-Type": "application/json" };
@@ -24,8 +25,9 @@ Deno.serve(async (request) => {
         const authorization = request.headers.get("Authorization");
         const url = Deno.env.get("SUPABASE_URL");
         const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+        const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
         const stateSecret = Deno.env.get("SOURCE_OAUTH_STATE_SECRET");
-        if (!authorization || !url || !anonKey || !stateSecret) return respond({ error: { code: "NOT_CONFIGURED" } }, 503);
+        if (!authorization || !url || !anonKey || !serviceRoleKey || !stateSecret) return respond({ error: { code: "NOT_CONFIGURED" } }, 503);
 
         const userClient = createClient(url, anonKey, {
             global: { headers: { Authorization: authorization } },
@@ -33,6 +35,10 @@ Deno.serve(async (request) => {
         });
         const { data: { user }, error } = await userClient.auth.getUser();
         if (error || !user) return respond({ error: { code: "UNAUTHORIZED" } }, 401);
+
+        const adminClient = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
+        const subscription = await requireActiveSubscription(adminClient, user.id);
+        if (!subscription.ok) return respond({ error: { code: subscription.code, message: subscription.message } }, 402);
 
         const body = await request.json() as { sourceType?: unknown };
         const sourceType = typeof body.sourceType === "string" ? body.sourceType : "";

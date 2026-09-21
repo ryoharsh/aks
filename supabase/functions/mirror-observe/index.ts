@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+import { requireActiveSubscription } from "../_shared/subscription/subscription.ts";
 import { processObservationPipeline } from "../_shared/mirror/mirror.core.ts";
 import { createMirrorRepository } from "../_shared/mirror/mirror.repository.ts";
 import { createMemoryRepository } from "../_shared/memory/memory.repository.ts";
@@ -45,11 +46,22 @@ Deno.serve(async (request) => {
         if (error || !user) return respond({ error: { code: "UNAUTHORIZED", message: "Please sign in to continue." } }, 401);
 
         const adminClient = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
+        const subscription = await requireActiveSubscription(adminClient, user.id);
+        if (!subscription.ok) return respond({ error: { code: subscription.code, message: subscription.message } }, 402);
         const repository = createMirrorRepository(userClient, adminClient, user.id);
         const memoryRepository = createMemoryRepository(userClient, adminClient, user.id);
         const patternRepository = createPatternRepository(userClient, adminClient, user.id);
         return respond(await processObservationPipeline({ repository, memoryRepository, patternRepository, conversationId: body.conversationId, userMessageId: body.userMessageId }));
-    } catch {
-        return respond({ signalsSaved: 0, signals: [], memoryCandidates: [], patternActions: [] });
+    } catch (error) {
+        // Failures must surface as errors — never as a 200 success-shape.
+        // The client throws on non-2xx, so "no signals" (200 with empty
+        // arrays) stays distinguishable from "request failed".
+        const errorMessage = error instanceof Error ? error.message : "";
+        console.error("[mirror-observe] pipeline failed:", errorMessage || error);
+        if (errorMessage === "RATE_LIMITED") return respond({ error: { code: "RATE_LIMITED", message: "Please wait a moment before trying again." } }, 429);
+        if (["CONVERSATION_UNAVAILABLE", "MESSAGE_UNAVAILABLE"].includes(errorMessage)) {
+            return respond({ error: { code: "NOT_FOUND", message: "The message could not be processed." } }, 404);
+        }
+        return respond({ error: { code: "OBSERVATION_FAILED", message: "Aks couldn't process that observation right now." } }, 503);
     }
 });

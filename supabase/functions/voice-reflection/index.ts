@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+import { requireActiveSubscription } from "../_shared/subscription/subscription.ts";
 import { aiService } from "../_shared/ai/ai.service.ts";
 import { createMemoryRepository } from "../_shared/memory/memory.repository.ts";
 import { createPatternRepository } from "../_shared/pattern/pattern.repository.ts";
@@ -42,17 +43,27 @@ Deno.serve(async (request) => {
         const { data: { user }, error } = await userClient.auth.getUser();
         if (error || !user) return respond({ error: { code: "UNAUTHORIZED", message: "Please sign in to continue." } }, 401);
 
-        const body = await request.json().catch(() => null) as { audioBase64?: unknown; mimeType?: unknown; requestId?: unknown } | null;
+        const body = await request.json().catch(() => null) as { audioBase64?: unknown; mimeType?: unknown; requestId?: unknown; text?: unknown } | null;
         const audioBase64 = typeof body?.audioBase64 === "string" ? body.audioBase64 : "";
         const requestId = typeof body?.requestId === "string" ? body.requestId : "";
         const mimeType = typeof body?.mimeType === "string" ? body.mimeType : "";
-        if (!audioBase64 || !requestId || requestId.length > 100) {
+        // On-device fallback: when server STT is not configured the client
+        // transcribes locally (no third-party API) and submits the text
+        // directly. Same idempotency, persistence, and processing as audio.
+        const directText = typeof body?.text === "string" ? body.text.trim() : "";
+        if (!requestId || requestId.length > 100) {
             return respond({ error: { code: "INVALID_REQUEST", message: "This request could not be processed." } }, 400);
         }
+        if (!audioBase64 && !directText) {
+            return respond({ error: { code: "INVALID_REQUEST", message: "This request could not be processed." } }, 400);
+        }
+        if (directText.length > 12000) return respond({ error: { code: "AUDIO_TOO_LARGE", message: "That recording is too long." } }, 413);
         if (audioBase64.length > MAX_BASE64_LENGTH) return respond({ error: { code: "AUDIO_TOO_LARGE", message: "That recording is too long." } }, 413);
-        if (!allowedMimeTypes.has(mimeType)) return respond({ error: { code: "UNSUPPORTED_AUDIO", message: "That recording format isn't supported." } }, 415);
+        if (audioBase64 && !allowedMimeTypes.has(mimeType)) return respond({ error: { code: "UNSUPPORTED_AUDIO", message: "That recording format isn't supported." } }, 415);
 
         const adminClient = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
+        const subscription = await requireActiveSubscription(adminClient, user.id);
+        if (!subscription.ok) return respond({ error: { code: subscription.code, message: subscription.message } }, 402);
         const reflectionRepository = createReflectionRepository(userClient, adminClient, user.id);
         const memoryRepository = createMemoryRepository(userClient, adminClient, user.id);
         const patternRepository = createPatternRepository(userClient, adminClient, user.id);
@@ -65,6 +76,18 @@ Deno.serve(async (request) => {
         }
 
         let audio: Uint8Array;
+        // Direct-text path skips audio handling and transcription entirely:
+        // the client already transcribed on-device. Metadata stays honest
+        // about the origin. Idempotency above already covered retries.
+        if (directText && !audioBase64) {
+            const reflection = await reflectionRepository.saveReflection(directText, {
+                source: "on_device_transcription",
+                voice_request_id: requestId,
+                transcription: { provider: "on-device", model: "device-speech", latency_ms: 0 },
+            });
+            const processing = await processReflection({ repository: reflectionRepository, memoryRepository, patternRepository, reflectionId: reflection.id }).catch(() => emptyProcessing);
+            return respond({ reflectionId: reflection.id, createdAt: reflection.createdAt, replayed: false, processing });
+        }
         try {
             const binary = atob(audioBase64);
             audio = new Uint8Array(binary.length);

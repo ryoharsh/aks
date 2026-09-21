@@ -3,21 +3,22 @@ import { InformationCircleIcon, SparklesIcon } from "@hugeicons/core-free-icons"
 
 import SettingsDetailScreen from "@/components/setting/SettingsDetailScreen";
 import type { SettingsStackParamList } from "@/navigation/routes";
+import { copy } from "@/constants/copy";
 
 type Props = NativeStackScreenProps<SettingsStackParamList, "About">;
 
 export default function AboutAksScreen({ navigation }: Props) {
     return (
         <SettingsDetailScreen
-            headerTitle="About Aks"
-            eyebrow="ABOUT"
-            title="Understand yourself, differently."
-            description="Aks helps you reflect on your activity, notice possible patterns, and run personal experiments with more intention."
+            headerTitle={copy.about.header}
+            eyebrow={copy.about.eyebrow}
+            title={copy.about.title}
+            description={copy.about.description}
             items={[
-                { label: "Product", value: "Aks.ai", icon: SparklesIcon },
-                { label: "Version", value: "1.0.0", icon: InformationCircleIcon },
+                { label: copy.about.productLabel, value: copy.about.productValue, icon: SparklesIcon },
+                { label: copy.about.versionLabel, value: copy.about.versionValue, icon: InformationCircleIcon },
             ]}
-            note="Aks supports personal reflection and does not replace professional medical or mental-health advice."
+            note={copy.about.note}
             onBack={() => navigation.goBack()}
         />
     );

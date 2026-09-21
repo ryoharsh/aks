@@ -50,7 +50,26 @@ describe("OpenAI realtime voice session provider", () => {
             inputSampleRate: 24000,
             outputSampleRate: 24000,
             pcmFormat: "pcm16",
+            voice: "alloy",
+            transcriptionModel: "whisper-1",
         });
+    });
+
+    it("selects voice and transcription from env without changing defaults", async () => {
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({
+            client_secret: { value: "ephemeral-token", expires_at: 1_800_000_000 },
+        })));
+
+        const provider = createOpenAIRealtimeVoiceSessionProvider({
+            OPENAI_API_KEY: "sk-a",
+            AI_REALTIME_MODEL: "gpt-4o-mini-realtime-preview",
+            AI_TTS_MODEL: "verse",
+            AI_STT_MODEL: "whisper-1",
+        });
+        const spec = await provider.createSession({ instructions: "Be Aks." });
+
+        expect(spec.voice).toBe("verse");
+        expect(spec.transcriptionModel).toBe("whisper-1");
     });
 
     it("surfaces rate limits as RATE_LIMITED", async () => {

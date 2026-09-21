@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { copy } from "@/constants/copy";
 import { usePagedData } from "./usePagedData";
 import { dataEvents } from "@/services/dataEvents";
 import { patternsService } from "@/services/patterns.service";
@@ -27,7 +28,7 @@ export function usePattern(id: string) {
             const [nextPattern, nextEvidence] = await Promise.all([patternsService.getPattern(id), patternsService.listPatternEvidence(id)]);
             if (current === request.current) { setPattern(nextPattern); setEvidence(nextEvidence); }
         } catch {
-            if (current === request.current) setError("We couldn't load this pattern.");
+            if (current === request.current) setError(copy.errors.pattern);
         } finally {
             if (current === request.current) setLoading(false);
         }

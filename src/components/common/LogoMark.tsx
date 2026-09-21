@@ -1,6 +1,8 @@
 import { View } from "react-native";
+
 import AppLogo from "../ui/AppLogo";
 import AppText from "../ui/Text";
+import { copy } from "@/constants/copy";
 
 export default function LogoMark() {
     return (
@@ -11,8 +13,8 @@ export default function LogoMark() {
                 variant="title"
                 className="text-xl font-satoshi-medium text-text-high"
             >
-                Aks.ai
+                {copy.brand.name}
             </AppText>
         </View>
     );
-};
+}

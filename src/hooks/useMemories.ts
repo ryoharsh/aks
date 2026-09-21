@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { copy } from "@/constants/copy";
 import { usePagedData } from "./usePagedData";
 import { memoriesService } from "@/services/memories.service";
 import { dataEvents } from "@/services/dataEvents";
@@ -27,7 +28,7 @@ export function useMemory(id: string) {
             const [nextMemory, nextEvidence] = await Promise.all([memoriesService.getMemory(id), memoriesService.listMemoryEvidence(id)]);
             if (current === request.current) { setMemory(nextMemory); setEvidence(nextEvidence); }
         } catch {
-            if (current === request.current) setError("We couldn't load this memory.");
+            if (current === request.current) setError(copy.errors.memory);
         } finally {
             if (current === request.current) setLoading(false);
         }

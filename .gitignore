@@ -43,3 +43,8 @@ yarn-error.*
 /android
 
 scripts
+
+modules/aks-realtime-audio/android/build
+
+.freebuff
+/.freebuff

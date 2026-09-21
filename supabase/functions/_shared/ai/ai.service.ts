@@ -1,4 +1,5 @@
 import { OpenAICompatibleProvider } from "./providers/openai-compatible.ts";
+import { resolveLLMConfig } from "./providers/provider.config.ts";
 import type { AIProvider, AIRequest, TranscriptionRequest, TranscriptionResult } from "./types.ts";
 
 export function generateWithProvider(provider: AIProvider, input: AIRequest) {
@@ -10,11 +11,14 @@ export function transcribeWithProvider(provider: AIProvider, input: Transcriptio
 }
 
 function createProvider(): AIProvider {
-    const baseUrl = Deno.env.get("AI_BASE_URL");
-    const apiKey = Deno.env.get("AI_API_KEY");
-    const model = Deno.env.get("AI_MODEL");
-    if (!baseUrl || !apiKey || !model) throw new Error("AI_NOT_CONFIGURED");
-    return new OpenAICompatibleProvider(baseUrl, apiKey, model);
+    // Vendor selection lives in provider.config (AI_LLM_PROVIDER /
+    // AI_LLM_MODEL). Only adapters registered
+    // there can be constructed; callers never name a vendor.
+    const config = resolveLLMConfig();
+    switch (config.providerId) {
+        case "openai-compatible":
+            return new OpenAICompatibleProvider(config.baseUrl, config.apiKey, config.model);
+    }
 }
 
 export const aiService = {

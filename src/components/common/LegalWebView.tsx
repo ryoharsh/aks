@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import { WebView } from "react-native-webview";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { ArrowLeftIcon } from "@hugeicons/core-free-icons";
+import { useResolveClassNames } from "uniwind";
 
 import AppText from "@/components/ui/Text";
 import IconButton from "../ui/IconButton";
+import { copy } from "@/constants/copy";
 
 type LegalWebViewProps = {
     title: string;
@@ -21,6 +22,7 @@ export default function LegalWebView({
 }: LegalWebViewProps) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
+    const spinnerColor = useResolveClassNames("text-text-high").color;
 
     const handleLoadStart = () => {
         setLoading(true);
@@ -38,7 +40,6 @@ export default function LegalWebView({
 
     return (
         <View className="flex-1 bg-background">
-            <StatusBar style="dark" />
 
             <View className="h-16 flex-row items-center border-b border-border px-5 mt-10">
                 <IconButton onPress={onBack} className="mr-4">
@@ -63,15 +64,14 @@ export default function LegalWebView({
                             variant="title"
                             className="text-center text-text-high"
                         >
-                            Unable to load this page
+                            {copy.errors.webPage}
                         </AppText>
 
                         <AppText
                             variant="body"
                             className="mt-2 text-center text-text-low"
                         >
-                            Please check your internet connection and try
-                            again.
+                            {copy.errors.webPageBody}
                         </AppText>
 
                         <View className="mt-6">
@@ -85,7 +85,7 @@ export default function LegalWebView({
                                     variant="button"
                                     className="text-text-high"
                                 >
-                                    Try again
+                                    {copy.common.tryAgain}
                                 </AppText>
                             </IconButton>
                         </View>
@@ -124,7 +124,7 @@ export default function LegalWebView({
                             <View className="absolute inset-0 items-center justify-center bg-background">
                                 <ActivityIndicator
                                     size="small"
-                                    color="#171717"
+                                    color={spinnerColor}
                                 />
                             </View>
                         )}

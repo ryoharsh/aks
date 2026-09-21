@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { copy } from "@/constants/copy";
 import { usePagedData } from "./usePagedData";
 import { dataEvents } from "@/services/dataEvents";
 import { experimentsService } from "@/services/experiments.service";
@@ -27,7 +28,7 @@ export function useExperiment(id: string) {
             const [nextExperiment, nextObservations] = await Promise.all([experimentsService.getExperiment(id), experimentsService.listObservations(id)]);
             if (current === request.current) { setExperiment(nextExperiment); setObservations(nextObservations); }
         } catch {
-            if (current === request.current) setError("We couldn't load this experiment.");
+            if (current === request.current) setError(copy.errors.experiment);
         } finally {
             if (current === request.current) setLoading(false);
         }

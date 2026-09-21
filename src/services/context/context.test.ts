@@ -9,6 +9,7 @@ vi.mock("@/lib/supabase", () => ({
     supabase: { rpc: vi.fn() },
     isSupabaseConfigured: true,
     supabaseUrl: "https://placeholder.supabase.co",
+    assertSupabaseConfigured: () => undefined,
 }));
 vi.mock("@/repositories/data.repository", () => ({
     requireAuthenticatedUser: vi.fn().mockResolvedValue({ id: "user-a" }),
@@ -21,14 +22,11 @@ import { permissionManager } from "./permissions";
 import { contextResolver } from "./contextResolver";
 
 describe("source registry", () => {
-    it("marks restricted sources honestly and keeps them unconnectable", () => {
-        expect(SOURCE_DEFINITIONS.calls.platformSupport.ios).toBe("not_available");
-        expect(SOURCE_DEFINITIONS.calls.platformSupport.android).toBe("policy_restricted");
-        expect(SOURCE_DEFINITIONS.messages.platformSupport.android).toBe("policy_restricted");
-        expect(CONNECTABLE_SOURCES).not.toContain("calls");
-        expect(CONNECTABLE_SOURCES).not.toContain("messages");
-        expect(CONNECTABLE_SOURCES).not.toContain("contacts");
-        expect(CONNECTABLE_SOURCES).not.toContain("health");
+    it("exposes only the final connectable set — removed sources are deleted, not unavailable", () => {
+        for (const removed of ["calls", "messages", "contacts", "health", "photos", "notifications_source", "app_activity"] as const) {
+            expect(CONNECTABLE_SOURCES as readonly string[]).not.toContain(removed);
+            expect(Object.keys(SOURCE_DEFINITIONS)).not.toContain(removed);
+        }
     });
 
     it("documents what is received and stored for every connectable source", () => {
@@ -49,12 +47,14 @@ describe("source registry", () => {
         }
     });
 
-    it("lists every source exactly once across groups (no duplicate rows)", () => {
-        const allSources = Object.keys(SOURCE_DEFINITIONS) as ContextSourceType[];
-        expect(new Set(allSources).size).toBe(allSources.length);
+    it("lists every connectable source exactly once across groups (no duplicate or empty rows)", () => {
+        expect(new Set(CONNECTABLE_SOURCES).size).toBe(CONNECTABLE_SOURCES.length);
 
-        const grouped = SOURCE_GROUPS.flatMap((group) => allSources.filter((source) => SOURCE_DEFINITIONS[source].group === group.key));
-        expect(grouped.sort()).toEqual([...allSources].sort());
+        const grouped = SOURCE_GROUPS.flatMap((group) => CONNECTABLE_SOURCES.filter((source) => SOURCE_DEFINITIONS[source].group === group.key));
+        expect(grouped.sort()).toEqual([...CONNECTABLE_SOURCES].sort());
+        for (const group of SOURCE_GROUPS) {
+            expect(CONNECTABLE_SOURCES.some((source) => SOURCE_DEFINITIONS[source].group === group.key)).toBe(true);
+        }
     });
 
     it("keeps the connectable list duplicate-free and registry-aligned", () => {
@@ -63,18 +63,19 @@ describe("source registry", () => {
         for (const source of CONNECTABLE_SOURCES) {
             expect(SOURCE_DEFINITIONS[source]).toBeDefined();
         }
+        // Final decision: exact connectable set (no photos/contacts/restricted).
+        expect([...CONNECTABLE_SOURCES].sort()).toEqual([
+            "location", "calendar", "google_calendar", "apple_calendar", "reminders", "google_tasks",
+            "apple_reminders", "todoist", "notion", "github", "slack", "email", "screen_time",
+        ].sort());
     });
 
-    it("covers the full provider taxonomy", () => {
-        const all = Object.keys(SOURCE_DEFINITIONS) as ContextSourceType[];
-        for (const expected of [
+    it("covers the final provider taxonomy and nothing removed", () => {
+        expect(Object.keys(SOURCE_DEFINITIONS).sort()).toEqual([
             "google_calendar", "apple_calendar", "google_tasks", "apple_reminders",
             "notion", "todoist", "github", "slack", "email", "screen_time",
-            "location", "notifications_source", "health", "voice_session", "photos",
-            "contacts", "calls", "messages",
-        ] as const) {
-            expect(all).toContain(expected);
-        }
+            "location", "calendar", "reminders", "voice_session",
+        ].sort());
     });
 
     it("marks Apple-only providers unavailable on Android (no fake availability)", () => {
@@ -90,15 +91,34 @@ describe("source registry", () => {
 });
 
 describe("permission manager", () => {
-    it("reports restricted sources as not available with canRequest=false", async () => {
-        const calls = await permissionManager.getStatus("calls");
-        expect(calls.state).toBe("not_available");
-        expect(calls.canRequest).toBe(false);
+    it("never allows requesting the builtin voice row from Connected Sources", async () => {
+        const voice = await permissionManager.getStatus("voice_session");
+        expect(voice.canRequest).toBe(false);
     });
+});
 
-    it("never allows requesting restricted or unavailable permissions", async () => {
-        for (const sourceType of ["calls", "messages", "notifications_source"] as const) {
-            expect((await permissionManager.getStatus(sourceType)).canRequest).toBe(false);
+describe("platform visibility (Apple on iOS, Android on Android)", () => {
+    it("hides not_available sources instead of showing them as unavailable", async () => {
+        const { contextService } = await import("./context.service");
+        // Test env mocks Platform.OS = "android" with no native modules:
+        // Apple-only + screen_time are not_available on Android and must be hidden.
+        const statuses = await contextService.getStatuses();
+        const types = statuses.map((status) => status.sourceType);
+        expect(types).not.toContain("apple_calendar");
+        expect(types).not.toContain("apple_reminders");
+        expect(types).not.toContain("screen_time");
+        // OAuth sources are supported everywhere — always shown.
+        expect(types).toContain("google_calendar");
+        expect(types).toContain("github");
+        // No displayed row is unavailable.
+        for (const status of statuses) {
+            expect(status.runtime.platformSupport).not.toBe("not_available");
+            expect(status.state).not.toBe("not_available");
+            expect(status.state).not.toBe("error");
+        }
+        const grouped = await contextService.getGroupedStatuses();
+        for (const group of grouped) {
+            expect(group.sources.length).toBeGreaterThan(0);
         }
     });
 });

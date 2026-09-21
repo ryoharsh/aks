@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+import { requireActiveSubscription } from "../_shared/subscription/subscription.ts";
 import { createRealtimeVoiceSessionProvider } from "../_shared/ai/realtime/session.provider.ts";
 import { buildMirrorContext } from "../_shared/mirror/context.ts";
 import { conversationResponseTask } from "../_shared/mirror/prompts.ts";
@@ -21,7 +22,8 @@ Deno.serve(async (request) => {
         const authorization = request.headers.get("Authorization");
         const url = Deno.env.get("SUPABASE_URL");
         const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-        if (!authorization || !url || !anonKey) return respond({ error: { code: "UNAUTHORIZED", message: "Please sign in to continue." } }, 401);
+        const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+        if (!authorization || !url || !anonKey || !serviceRoleKey) return respond({ error: { code: "UNAUTHORIZED", message: "Please sign in to continue." } }, 401);
 
         let body: { conversationId?: unknown };
         try {
@@ -37,6 +39,10 @@ Deno.serve(async (request) => {
         const userClient = createClient(url, anonKey, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false } });
         const { data: { user }, error } = await userClient.auth.getUser();
         if (error || !user) return respond({ error: { code: "UNAUTHORIZED", message: "Please sign in to continue." } }, 401);
+
+        const adminClient = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
+        const subscription = await requireActiveSubscription(adminClient, user.id);
+        if (!subscription.ok) return respond({ error: { code: subscription.code, message: subscription.message } }, 402);
 
         let instructions = conversationResponseTask.instructions;
         if (conversationId) {
@@ -68,10 +74,18 @@ Deno.serve(async (request) => {
                     if (result.error) throw new Error("CONTEXT_UNAVAILABLE");
                     return result.data.map((learning) => ({ title: learning.title, description: learning.description, status: learning.status, confidence: learning.confidence }));
                 }),
-                userClient.from("user_preferences").select("what_exploring, what_to_notice").maybeSingle().then((result) => {
+                (async () => {
+                    // Same graceful degradation as the Mirror repository: the
+                    // language column ships with the user_language migration, and
+                    // voice sessions must not fail where Mirror still works.
+                    const withLanguage = await userClient.from("user_preferences").select("what_exploring, what_to_notice, language").maybeSingle();
+                    const result = withLanguage.error
+                        ? await userClient.from("user_preferences").select("what_exploring, what_to_notice").maybeSingle()
+                        : withLanguage;
                     if (result.error) throw new Error("CONTEXT_UNAVAILABLE");
-                    return { whatExploring: result.data?.what_exploring ?? [], whatToNotice: result.data?.what_to_notice ?? [] };
-                }),
+                    const data = result.data as { what_exploring?: string[] | null; what_to_notice?: string[] | null; language?: string | null } | null;
+                    return { whatExploring: data?.what_exploring ?? [], whatToNotice: data?.what_to_notice ?? [], language: data?.language ?? null };
+                })(),
             ]);
             const context = buildMirrorContext({ currentMessage: "", conversation: { title: conversation.title }, recentMessages, recentSignals, activeMemories, supportedPatterns, activeExperiments, relevantLearnings, preferences });
             instructions = `${conversationResponseTask.instructions}\n\nConversation context:\n${JSON.stringify(context)}`;
@@ -80,9 +94,14 @@ Deno.serve(async (request) => {
         const spec = await createRealtimeVoiceSessionProvider().createSession({ instructions });
         return respond({ spec: { conversationId, ...spec } });
     } catch (error) {
+        // Adapters append provider details after the code
+        // (e.g. "REALTIME_PROVIDER_UNAVAILABLE: gemini auth_tokens status
+        // 400 ..."), so match on prefix — the client still receives only
+        // the stable code, while the log below keeps the details.
         const errorMessage = error instanceof Error ? error.message : "";
-        if (errorMessage === "REALTIME_NOT_CONFIGURED") return respond({ error: { code: "REALTIME_NOT_CONFIGURED", message: "Voice conversations aren’t configured for this build yet." } }, 503);
-        if (errorMessage === "RATE_LIMITED") return respond({ error: { code: "RATE_LIMITED", message: "Please wait a moment before trying again." } }, 429);
+        if (errorMessage === "REALTIME_NOT_CONFIGURED" || errorMessage.startsWith("REALTIME_NOT_CONFIGURED")) return respond({ error: { code: "REALTIME_NOT_CONFIGURED", message: "Voice conversations aren’t configured for this build yet." } }, 503);
+        if (errorMessage === "RATE_LIMITED" || errorMessage.startsWith("RATE_LIMITED")) return respond({ error: { code: "RATE_LIMITED", message: "Please wait a moment before trying again." } }, 429);
+        console.error("[realtime-session] createSession failed:", error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error);
         return respond({ error: { code: "REALTIME_PROVIDER_UNAVAILABLE", message: "Aks couldn’t start the voice conversation right now." } }, 503);
     }
 });

@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { Alert } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Animated, {
     FadeIn,
@@ -23,7 +21,9 @@ import LogoMark from "@/components/common/LogoMark";
 import type { AuthStackParamList } from "@/navigation/routes";
 import LegalLinks from "@/components/common/LegalLinks";
 import EmailConfirmation from "@/components/auth/EmailConfirmation";
+import { useBottomSheet } from "@/components/ui/BottomSheetProvider";
 import { useAuth } from "@/hooks/useAuth";
+import { copy } from "@/constants/copy";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Register">;
 const facebookEnabled = process.env.EXPO_PUBLIC_AUTH_FACEBOOK_ENABLED === "true";
@@ -34,6 +34,7 @@ export default function RegisterScreen({ navigation }: Props) {
     const [loading, setLoading] = useState(false);
     const [sentEmail, setSentEmail] = useState<string | null>(null);
     const { callbackError, clearCallbackError, signUpWithMagicLink, signInWithProvider } = useAuth();
+    const { notice } = useBottomSheet();
 
     const isValid =
         name.trim().length > 1 &&
@@ -47,9 +48,9 @@ export default function RegisterScreen({ navigation }: Props) {
             await signUpWithMagicLink(name, email);
             setSentEmail(email.trim().toLowerCase());
         } catch (error) {
-            Alert.alert(
-                "Unable to create account",
-                error instanceof Error ? error.message : "Please try again.",
+            notice(
+                copy.register.notices.unableToCreate,
+                error instanceof Error ? error.message : copy.common.pleaseTryAgain,
             );
         } finally {
             setLoading(false);
@@ -63,9 +64,9 @@ export default function RegisterScreen({ navigation }: Props) {
             setLoading(true);
             await signInWithProvider(provider);
         } catch (error) {
-            Alert.alert(
-                "Unable to sign in",
-                error instanceof Error ? error.message : "Please try again.",
+            notice(
+                copy.register.notices.unableToSignIn,
+                error instanceof Error ? error.message : copy.common.pleaseTryAgain,
             );
         } finally {
             setLoading(false);
@@ -87,7 +88,6 @@ export default function RegisterScreen({ navigation }: Props) {
         <KeyboardAvoidingView
             className="flex-1 bg-background"
             behavior="padding">
-            <StatusBar style="dark" />
 
             <Animated.View
                 entering={FadeIn.duration(500)}
@@ -113,19 +113,18 @@ export default function RegisterScreen({ navigation }: Props) {
                                 variant="display"
                                 className="font-satoshi-medium text-text-high"
                             >
-                                Create your account.
+                                {copy.register.title}
                             </AppText>
 
                             <AppText
                                 variant="body"
                                 className="mt-3 text-text-low"
                             >
-                                Start building a clearer picture of
-                                yourself with Aks.
+                                {copy.register.description}
                             </AppText>
                             {callbackError ? (
                                 <Pressable onPress={clearCallbackError} accessibilityRole="button">
-                                    <AppText variant="caption" className="mt-3 text-red-600">{callbackError} Tap to dismiss.</AppText>
+                                    <AppText variant="caption" className="mt-3 text-red-600">{callbackError} {copy.register.dismissError}</AppText>
                                 </Pressable>
                             ) : null}
                         </Animated.View>
@@ -137,7 +136,7 @@ export default function RegisterScreen({ navigation }: Props) {
                                 variant="caption"
                                 className="mb-2 text-text-medium"
                             >
-                                Full name
+                                {copy.register.nameLabel}
                             </AppText>
 
                             <TextInput
@@ -146,10 +145,10 @@ export default function RegisterScreen({ navigation }: Props) {
                                 autoCapitalize="words"
                                 autoCorrect={false}
                                 textContentType="name"
-                                placeholder="Your full name"
+                                placeholder={copy.register.namePlaceholder}
                                 placeholderTextColor="#A3A3A3"
                                 className="h-14 rounded-2xl border border-border bg-surface px-4 text-[16px] text-text-high"
-                                accessibilityLabel="Full name"
+                                accessibilityLabel={copy.register.nameA11y}
                             />
                         </Animated.View>
 
@@ -161,7 +160,7 @@ export default function RegisterScreen({ navigation }: Props) {
                                 variant="caption"
                                 className="mb-2 text-text-medium"
                             >
-                                Email address
+                                {copy.register.emailLabel}
                             </AppText>
 
                             <TextInput
@@ -171,10 +170,10 @@ export default function RegisterScreen({ navigation }: Props) {
                                 autoCorrect={false}
                                 keyboardType="email-address"
                                 textContentType="emailAddress"
-                                placeholder="you@example.com"
+                                placeholder={copy.common.emailPlaceholder}
                                 placeholderTextColor="#A3A3A3"
                                 className="h-14 rounded-2xl border border-border bg-surface px-4 text-[16px] text-text-high"
-                                accessibilityLabel="Email address"
+                                accessibilityLabel={copy.register.emailLabel}
                             />
                         </Animated.View>
 
@@ -186,14 +185,14 @@ export default function RegisterScreen({ navigation }: Props) {
                                 onPress={handleRegister}
                                 loading={loading}
                                 disabled={!isValid}
-                                accessibilityLabel="Create account with email"
+                                accessibilityLabel={copy.register.createAccountA11y}
                                 className="mt-4 rounded-2xl"
                             >
                                 <AppText
                                     variant="button"
                                     className="text-white"
                                 >
-                                    Create account
+                                    {copy.register.createAccount}
                                 </AppText>
                             </Button>
 
@@ -201,8 +200,7 @@ export default function RegisterScreen({ navigation }: Props) {
                                 variant="caption"
                                 className="mt-3 px-2 text-center text-text-low"
                             >
-                                We'll send you a secure sign-in link.
-                                No password needed.
+                                {copy.register.secureLinkNote}
                             </AppText>
                         </Animated.View>
 
@@ -216,7 +214,7 @@ export default function RegisterScreen({ navigation }: Props) {
                                 variant="caption"
                                 className="mx-4 text-text-low"
                             >
-                                OR SIGN UP WITH
+                                {copy.register.divider}
                             </AppText>
 
                             <View className="h-px flex-1 bg-border" />
@@ -230,7 +228,7 @@ export default function RegisterScreen({ navigation }: Props) {
                                     onPress={() => handleOAuth("google")}
                                     variant="secondary"
                                     disabled={loading}
-                                    accessibilityLabel="Continue with Google"
+                                    accessibilityLabel={copy.register.googleA11y}
                                     className="flex-1 rounded-full bg-surface"
                                 >
                                     <Image
@@ -243,7 +241,7 @@ export default function RegisterScreen({ navigation }: Props) {
                                         variant="button"
                                         className="text-text-high"
                                     >
-                                        Google
+                                        {copy.register.google}
                                     </AppText>
                                 </Button>
 
@@ -251,7 +249,7 @@ export default function RegisterScreen({ navigation }: Props) {
                                     onPress={() => handleOAuth("facebook")}
                                     variant="secondary"
                                     disabled={loading}
-                                    accessibilityLabel="Continue with Facebook"
+                                    accessibilityLabel={copy.register.facebookA11y}
                                     className="flex-1 rounded-full bg-surface"
                                 >
                                     <Image
@@ -264,7 +262,7 @@ export default function RegisterScreen({ navigation }: Props) {
                                         variant="button"
                                         className="text-text-high"
                                     >
-                                        Facebook
+                                        {copy.register.facebook}
                                     </AppText>
                                 </Button> : null}
                             </View>
@@ -273,7 +271,7 @@ export default function RegisterScreen({ navigation }: Props) {
                                 onPress={() => handleOAuth("github")}
                                 variant="secondary"
                                 disabled={loading}
-                                accessibilityLabel="Continue with GitHub"
+                                accessibilityLabel={copy.register.githubA11y}
                                 className="rounded-full bg-surface"
                             >
                                 <Image
@@ -286,7 +284,7 @@ export default function RegisterScreen({ navigation }: Props) {
                                     variant="button"
                                     className="text-text-high"
                                 >
-                                    Continue with GitHub
+                                    {copy.register.github}
                                 </AppText>
                             </Button>
                         </Animated.View>
@@ -301,7 +299,7 @@ export default function RegisterScreen({ navigation }: Props) {
                                 variant="button"
                                 className="text-text-low"
                             >
-                                Already have an account?
+                                {copy.register.hasAccount}
                             </AppText>
 
                             <Pressable
@@ -314,7 +312,7 @@ export default function RegisterScreen({ navigation }: Props) {
                                     variant="button"
                                     className="ml-1 text-[14px] text-text-high"
                                 >
-                                    Sign in
+                                    {copy.register.signIn}
                                 </AppText>
                             </Pressable>
                         </View>

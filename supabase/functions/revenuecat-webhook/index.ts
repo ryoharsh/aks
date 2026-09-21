@@ -1,28 +1,17 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+import {
+    buildSubscriptionMirrorRow,
+    shouldApplyWebhookEvent,
+} from "../_shared/subscription/revenuecat-webhook.ts";
+
 const headers = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Content-Type": "application/json",
 };
 
-const DEFAULT_ENTITLEMENT = "premium";
-
-const eventToStatus: Record<string, string> = {
-    INITIAL_PURCHASE: "active",
-    RENEWAL: "active",
-    PRODUCT_CHANGE: "active",
-    UNCANCELLATION: "active",
-    NON_RENEWING_PURCHASE: "active",
-    TRIAL_STARTED: "active",
-    TRIAL_CONVERTED: "active",
-    TRANSFER: "active",
-    CANCELLATION: "cancelled",
-    SUBSCRIPTION_PAUSED: "cancelled",
-    BILLING_ISSUE: "billing_issue",
-    EXPIRATION: "expired",
-    REFUND: "expired",
-};
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function equalSecrets(a: string, b: string): boolean {
     if (a.length !== b.length) return false;
@@ -63,36 +52,38 @@ Deno.serve(async (request) => {
     }
 
     const rcEvent = (body.event ?? body) as Record<string, unknown>;
-    const eventType = typeof rcEvent.type === "string" ? rcEvent.type : "";
-    const status = eventToStatus[eventType];
-    const appUserId = typeof rcEvent.app_user_id === "string" ? rcEvent.app_user_id : "";
-
-    if (!status || !appUserId) {
+    const row = buildSubscriptionMirrorRow(rcEvent);
+    if (!row) {
+        return new Response(JSON.stringify({ received: true, ignored: true }), { status: 200, headers });
+    }
+    // The client logs in with the Supabase user id; anything else cannot be
+    // mapped to a `subscriptions` row.
+    if (!uuidPattern.test(row.user_id)) {
         return new Response(JSON.stringify({ received: true, ignored: true }), { status: 200, headers });
     }
 
-    const entitlementIds = Array.isArray(rcEvent.entitlement_ids)
-        ? rcEvent.entitlement_ids.filter((id): id is string => typeof id === "string")
-        : [];
-    const productId = typeof rcEvent.product_id === "string" ? rcEvent.product_id : null;
-    const expirationAtMs = typeof rcEvent.expiration_at_ms === "number" ? rcEvent.expiration_at_ms : null;
-    // Store the Supabase user id as the RevenueCat customer id: the client logs in
-    // with the user id, so revenuecat_customer_id and user_id match.
-    const row = {
-        user_id: appUserId,
-        revenuecat_customer_id: appUserId,
-        entitlement: entitlementIds[0] ?? DEFAULT_ENTITLEMENT,
-        product_id: productId,
-        status,
-        expires_at: expirationAtMs ? new Date(expirationAtMs).toISOString() : null,
-        updated_at: new Date().toISOString(),
-    };
-
     const admin = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
+
+    // Stale-event guard: a delayed redelivery must not overwrite newer state.
+    // A repeated delivery of the same event carries the same timestamp and
+    // the same row, so replays stay idempotent.
+    const { data: existing } = await admin
+        .from("subscriptions")
+        .select("updated_at")
+        .eq("user_id", row.user_id)
+        .maybeSingle();
+    const existingUpdatedAt =
+        existing && typeof existing.updated_at === "string"
+            ? existing.updated_at
+            : null;
+    if (!shouldApplyWebhookEvent(existingUpdatedAt, row.updated_at)) {
+        return new Response(JSON.stringify({ received: true, ignored: true, reason: "stale" }), { status: 200, headers });
+    }
+
     const { error } = await admin.from("subscriptions").upsert(row, { onConflict: "user_id" });
     if (error) {
         return new Response(JSON.stringify({ error: "Unable to store subscription" }), { status: 500, headers });
     }
 
-    return new Response(JSON.stringify({ received: true, status }), { status: 200, headers });
+    return new Response(JSON.stringify({ received: true, status: row.status }), { status: 200, headers });
 });

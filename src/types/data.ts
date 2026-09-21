@@ -209,4 +209,5 @@ export type YourDataCounts = {
     experiments: number;
     learnings: number;
     insights: number;
+    connectedSources: number;
 };

@@ -3,7 +3,6 @@ import {
     ScrollView,
     View,
 } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Animated, {
     FadeIn,
@@ -19,8 +18,9 @@ import Button from "@/components/ui/Button";
 import Checkbox from "@/components/ui/Checkbox";
 import LogoMark from "@/components/common/LogoMark";
 import type { RootStackParamList } from "@/navigation/routes";
+import { useBottomSheet } from "@/components/ui/BottomSheetProvider";
 import { useAppFlow } from "@/providers/AppFlowProvider";
-import { Alert } from "react-native";
+import { copy } from "@/constants/copy";
 
 type Props = NativeStackScreenProps<
     RootStackParamList,
@@ -33,6 +33,7 @@ export default function LegalAcceptanceScreen({
     const [accepted, setAccepted] = useState(false);
     const [loading, setLoading] = useState(false);
     const { acceptLegal, error, retry } = useAppFlow();
+    const { notice } = useBottomSheet();
 
     const handleContinue = async () => {
         if (!accepted || loading) return;
@@ -40,7 +41,7 @@ export default function LegalAcceptanceScreen({
             setLoading(true);
             await acceptLegal();
         } catch {
-            Alert.alert("Unable to save acceptance", "Check your connection and try again.");
+            notice(copy.legal.acceptance.notices.unableToSave, copy.common.checkConnection);
         } finally {
             setLoading(false);
         }
@@ -48,7 +49,6 @@ export default function LegalAcceptanceScreen({
 
     return (
         <SafeAreaView className="flex-1 bg-background">
-            <StatusBar style="dark" />
 
             <Animated.View
                 entering={FadeIn.duration(500)}
@@ -72,16 +72,14 @@ export default function LegalAcceptanceScreen({
                                 variant="display"
                                 className="font-satoshi-medium text-text-high"
                             >
-                                Before we begin.
+                                {copy.legal.acceptance.title}
                             </AppText>
 
                             <AppText
                                 variant="body"
                                 className="mt-3 max-w-82.5 text-text-low"
                             >
-                                Aks works with personal information to help
-                                you understand your patterns. Here's what
-                                you should know before continuing.
+                                {copy.legal.acceptance.description}
                             </AppText>
                         </Animated.View>
 
@@ -92,47 +90,28 @@ export default function LegalAcceptanceScreen({
                                 <AppText
                                     variant="title"
                                     className="text-text-high">
-                                    Your data, your control.
+                                    {copy.legal.acceptance.cardTitle}
                                 </AppText>
 
                                 <AppText
                                     variant="body"
                                     className="mt-3 text-text-low"
                                 >
-                                    Aks uses the information you choose to
-                                    share to identify patterns and help you
-                                    run personal experiments.
+                                    {copy.legal.acceptance.cardBody}
                                 </AppText>
 
                                 <View className="mt-3 h-px bg-border" />
 
                                 <View className="mt-5 gap-4">
-                                    <View className="flex-row items-center">
-                                        <View className="mr-3 size-1.5 rounded-full bg-primary" />
+                                    {copy.legal.acceptance.bullets.map((bullet) => (
+                                        <View key={bullet} className="flex-row items-center">
+                                            <View className="mr-3 size-1.5 rounded-full bg-primary" />
 
-                                        <AppText variant="body" className="flex-1 text-[14px] text-text-medium">
-                                            You decide what information to
-                                            provide.
-                                        </AppText>
-                                    </View>
-
-                                    <View className="flex-row items-center">
-                                        <View className="mr-3 size-1.5 rounded-full bg-primary" />
-
-                                        <AppText variant="body" className="flex-1 text-[14px] text-text-medium">
-                                            You can manage your data and
-                                            permissions.
-                                        </AppText>
-                                    </View>
-
-                                    <View className="flex-row items-center">
-                                        <View className="mr-3 size-1.5 rounded-full bg-primary" />
-
-                                        <AppText variant="body" className="flex-1 text-[14px] text-text-medium">
-                                            Aks does not replace professional
-                                            medical or mental-health advice.
-                                        </AppText>
-                                    </View>
+                                            <AppText variant="body" className="flex-1 text-[14px] text-text-medium">
+                                                {bullet}
+                                            </AppText>
+                                        </View>
+                                    ))}
                                 </View>
                             </View>
                         </Animated.View>
@@ -147,13 +126,13 @@ export default function LegalAcceptanceScreen({
                                     onCheckedChange={setAccepted}
                                     size="sm"
                                     className="mr-3 mt-0.5"
-                                    accessibilityLabel="Accept Terms of Service and Privacy Policy"
+                                    accessibilityLabel={copy.legal.acceptance.consentA11y}
                                 />
 
                                 <AppText
                                     variant="body"
                                     className="flex-1 text-text-medium">
-                                    I agree to Aks.ai's{" "}
+                                    {copy.legal.acceptance.agreePrefix}{" "}
                                     <AppText
                                         variant="body"
                                         className="text-text-high underline"
@@ -161,9 +140,9 @@ export default function LegalAcceptanceScreen({
                                             navigation.navigate("Terms")
                                         }
                                     >
-                                        Terms of Service
+                                        {copy.legal.acceptance.terms}
                                     </AppText>{" "}
-                                    and{" "}
+                                    {copy.legal.acceptance.andWord}{" "}
                                     <AppText
                                         variant="body"
                                         className="text-text-high underline"
@@ -171,7 +150,7 @@ export default function LegalAcceptanceScreen({
                                             navigation.navigate("PrivacyPolicy")
                                         }
                                     >
-                                        Privacy Policy
+                                        {copy.legal.acceptance.privacy}
                                     </AppText>
                                     .
                                 </AppText>
@@ -194,13 +173,13 @@ export default function LegalAcceptanceScreen({
                                 variant="button"
                                 className="text-white"
                             >
-                                Continue to Aks
+                                {copy.legal.acceptance.continue}
                             </AppText>
                         </Button>
 
                         {error ? (
                             <AppText onPress={retry} variant="caption" className="mt-3 text-center text-red-600 underline">
-                                {error} Retry
+                                {error} {copy.legal.acceptance.retryAction}
                             </AppText>
                         ) : null}
 
@@ -208,8 +187,7 @@ export default function LegalAcceptanceScreen({
                             variant="caption"
                             className="mt-4 text-center text-text-low"
                         >
-                            You can review these documents again later
-                            from Settings.
+                            {copy.legal.acceptance.footnote}
                         </AppText>
                     </Animated.View>
                 </View>

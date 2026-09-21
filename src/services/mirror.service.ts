@@ -3,7 +3,7 @@ import { checkInsService } from "./checkIns.service";
 import { conversationsService } from "./conversations.service";
 import { createCheckInRequestId } from "@/repositories/checkIns.repository";
 import type { Json } from "@/types/database";
-import type { PendingMirrorTurn, MirrorTurn } from "@/types/mirror";
+import type { MirrorErrorCode, PendingMirrorTurn, MirrorTurn } from "@/types/mirror";
 import { dataEvents } from "./dataEvents";
 import { mirrorRealtimeService, type MirrorVoiceSession, type MirrorVoiceSessionOptions } from "./mirror-realtime.service";
 
@@ -24,24 +24,53 @@ type GeneratedReply = {
  * failure falls back to the non-streaming turn (same claim/persistence
  * semantics server-side).
  */
-async function generateReply(pending: PendingMirrorTurn, onDelta?: (accumulatedText: string) => void): Promise<GeneratedReply> {
+/**
+ * Per-turn options. `language` is the language the app is currently displaying:
+ * Aks answers in it, so a user reading the app in Hindi gets Hindi replies. The
+ * server falls back to the account's stored preference when it is absent.
+ */
+export type MirrorTurnOptions = { language?: string };
+
+async function generateReply(pending: PendingMirrorTurn, onDelta: ((accumulatedText: string) => void) | undefined, options: MirrorTurnOptions, regenerate = false): Promise<GeneratedReply> {
     if (onDelta) {
         try {
-            const streamed = await mirrorRepository.processMessageStream(pending.conversationId, pending.userMessage.id, onDelta);
+            const streamed = await mirrorRepository.processMessageStream(pending.conversationId, pending.userMessage.id, onDelta, { regenerate, language: options.language });
             return { ...streamed, signals: [], memoryCandidates: [], patternActions: [] };
         } catch {
             // Fall through to the non-streaming turn.
         }
     }
-    return mirrorRepository.processMessage(pending.conversationId, pending.userMessage.id);
+    return mirrorRepository.processMessage(pending.conversationId, pending.userMessage.id, { regenerate, language: options.language });
 }
 
-async function processSavedMessage(pending: PendingMirrorTurn, onDelta?: (accumulatedText: string) => void): Promise<MirrorTurn> {
+/**
+ * Honest copy for a failed generation. A failed regeneration is never
+ * presented as a success: the previous response is still visible, and the user
+ * is told exactly that (9.7).
+ */
+function failureMessage(code: MirrorErrorCode, regenerate: boolean) {
+    if (regenerate) {
+        if (code === "RATE_LIMITED") return "Please wait a moment before trying again. The previous response is still here.";
+        if (code === "ATTEMPTS_EXHAUSTED") return "Aks couldn't refresh this response after several attempts. The previous one is still here.";
+        if (code === "NOTHING_TO_REGENERATE") return "That response can no longer be refreshed.";
+        return "Aks couldn't refresh that response. The previous one is still here.";
+    }
+    if (code === "INVALID_AI_OUTPUT") return "Aks couldn't understand the response safely. Your message is saved.";
+    if (code === "RATE_LIMITED") return "Please wait a moment before trying again. Your message is saved.";
+    if (code === "ATTEMPTS_EXHAUSTED") return "Aks couldn't complete this response after several attempts. Your message is still saved.";
+    if (code === "CONVERSATION_UNAVAILABLE") return "This conversation is no longer available. Your message may still be saved.";
+    if (code === "NOTHING_TO_REGENERATE") return "That response can no longer be refreshed.";
+    return "Aks couldn't process that right now. Your message is saved.";
+}
+
+async function processSavedMessage(pending: PendingMirrorTurn, onDelta: ((accumulatedText: string) => void) | undefined, options: MirrorTurnOptions, regenerate = false): Promise<MirrorTurn> {
     try {
-        const generated = await generateReply(pending, onDelta);
+        const generated = await generateReply(pending, onDelta, options, regenerate);
         dataEvents.emit("messages");
         dataEvents.emit("conversations");
-        if (generated.observable !== false) runObservation(pending.conversationId, pending.userMessage.id);
+        // A regeneration re-answers an unchanged user turn: its observations
+        // already exist, so re-extracting them would only cost an AI call.
+        if (!regenerate && generated.observable !== false) runObservation(pending.conversationId, pending.userMessage.id);
         const memoryCandidates = generated.memoryCandidates ?? [];
         const patternActions = generated.patternActions ?? [];
         return {
@@ -58,23 +87,14 @@ async function processSavedMessage(pending: PendingMirrorTurn, onDelta?: (accumu
         };
     } catch (error) {
         const code = error instanceof MirrorRepositoryError ? error.code : "AI_UNAVAILABLE";
-        const message = code === "INVALID_AI_OUTPUT"
-            ? "Aks couldn't understand the response safely. Your message is saved."
-            : code === "RATE_LIMITED"
-                ? "Please wait a moment before trying again. Your message is saved."
-                : code === "ATTEMPTS_EXHAUSTED"
-                    ? "Aks couldn't complete this response after several attempts. Your message is still saved."
-                : code === "CONVERSATION_UNAVAILABLE"
-                    ? "This conversation is no longer available. Your message may still be saved."
-                    : "Aks couldn't process that right now. Your message is saved.";
         return {
             ...pending,
             assistantMessage: null,
             result: null,
             processingError: {
                 code,
-                message,
-                retryable: code !== "CONVERSATION_UNAVAILABLE" && code !== "ATTEMPTS_EXHAUSTED",
+                message: failureMessage(code, regenerate),
+                retryable: code !== "CONVERSATION_UNAVAILABLE" && code !== "ATTEMPTS_EXHAUSTED" && code !== "NOTHING_TO_REGENERATE",
             },
         };
     }
@@ -91,12 +111,20 @@ function runObservation(conversationId: string, userMessageId: string) {
 }
 
 export const mirrorService = {
-    async sendMessage(conversationId: string | null, content: string, requestId: string, metadata: Json = {}, onDelta?: (accumulatedText: string) => void) {
+    async sendMessage(conversationId: string | null, content: string, requestId: string, metadata: Json = {}, onDelta?: (accumulatedText: string) => void, options: MirrorTurnOptions = {}) {
         const saved = await conversationsService.saveUserMessage(conversationId, content, requestId, metadata);
-        return processSavedMessage({ conversationId: saved.conversationId, userMessage: saved.message }, onDelta);
+        return processSavedMessage({ conversationId: saved.conversationId, userMessage: saved.message }, onDelta, options);
     },
-    retryMessage(pending: PendingMirrorTurn, onDelta?: (accumulatedText: string) => void) {
-        return processSavedMessage(pending, onDelta);
+    retryMessage(pending: PendingMirrorTurn, onDelta?: (accumulatedText: string) => void, options: MirrorTurnOptions = {}) {
+        return processSavedMessage(pending, onDelta, options);
+    },
+    /**
+     * Re-answer an existing turn. The server replaces that turn's single
+     * assistant message, so the user turn is never duplicated and only one
+     * version is ever visible.
+     */
+    regenerateReply(pending: PendingMirrorTurn, onDelta?: (accumulatedText: string) => void, options: MirrorTurnOptions = {}) {
+        return processSavedMessage(pending, onDelta, options, true);
     },
     sendCheckIn: checkInsService.createCheckIn,
     sendVoice(options: MirrorVoiceSessionOptions): MirrorVoiceSession {

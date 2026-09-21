@@ -1,0 +1,7 @@
+{
+  "name": "aks-realtime-audio",
+  "version": "1.0.0",
+  "description": "Live PCM microphone capture and streaming audio playback for Aks realtime voice conversations.",
+  "license": "UNLICENSED",
+  "private": true
+}

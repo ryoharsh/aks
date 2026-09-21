@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { copy } from "@/constants/copy";
 import { privacyService, type ExportResult } from "@/services/privacy.service";
 
 export type ExportPhase = "idle" | "processing" | "ready" | "error";
@@ -36,7 +37,7 @@ export function useExportData(): ExportDataState {
                     if (timerRef.current) clearInterval(timerRef.current);
                     timerRef.current = null;
                     setPhase("error");
-                    setError("The export link has expired. Please request a new export.");
+                    setError(copy.errors.exportLinkExpired);
                     setResult(null);
                 }
             };

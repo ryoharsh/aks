@@ -13,12 +13,16 @@ export type WebSocketFactory = (url: string, options: { protocols?: string | str
 const READY_STATE_OPEN = 1;
 
 const defaultWebSocketFactory: WebSocketFactory = (url, options) => {
-    const ctor = WebSocket as unknown as (
+    // WebSocket is a class constructor — it must be invoked with `new`.
+    // Calling it as a plain function throws "Class constructor ... invoked
+    // without new" on device (this is the real-device path; tests inject a
+    // fake factory, which is why it was never caught).
+    const Ctor = WebSocket as unknown as new (
         url: string,
         protocols?: string | string[],
         options?: { headers?: Record<string, string> },
     ) => WebSocketLike;
-    return ctor(url, options.protocols ?? undefined, { headers: options.headers });
+    return new Ctor(url, options.protocols ?? undefined, { headers: options.headers });
 };
 
 export function createRealtimeTransport(spec: RealtimeSessionSpec, webSocketFactory?: WebSocketFactory): RealtimeTransport {
@@ -57,9 +61,17 @@ export function createWebSocketTransport(options: { webSocketFactory?: WebSocket
         connect(spec: RealtimeSessionSpec) {
             return new Promise<void>((resolve, reject) => {
                 if (socket) throw new MirrorRealtimeError("REALTIME_SESSION_UNAVAILABLE", true, "The voice session is already connected.");
-                socket = factory(spec.endpoint, {
+                // Token placement adapts to the provider: Bearer header by
+                // default, access_token query parameter for Gemini ephemeral
+                // tokens. The raw provider key never reaches the client —
+                // only the short-lived session token minted server-side.
+                const useQueryAuth = spec.auth?.placement === "query";
+                const endpoint = useQueryAuth
+                    ? `${spec.endpoint}${spec.endpoint.includes("?") ? "&" : "?"}${encodeURIComponent(spec.auth?.param ?? "access_token")}=${encodeURIComponent(spec.sessionToken)}`
+                    : spec.endpoint;
+                socket = factory(endpoint, {
                     protocols: [],
-                    headers: spec.sessionToken ? { Authorization: `Bearer ${spec.sessionToken}` } : undefined,
+                    headers: !useQueryAuth && spec.sessionToken ? { Authorization: `Bearer ${spec.sessionToken}` } : undefined,
                 });
                 const timeout = setTimeout(() => {
                     reject(new MirrorRealtimeError("REALTIME_SESSION_UNAVAILABLE", true, "The voice session timed out."));

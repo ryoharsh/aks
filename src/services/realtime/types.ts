@@ -64,6 +64,7 @@ export const realTimeErrorCodes = [
     "REALTIME_TRANSCRIPTION_FAILED",
     "REALTIME_PROVIDER_ERROR",
     "REALTIME_SESSION_EXPIRED",
+    "REALTIME_SUBSCRIPTION_REQUIRED",
 ] as const;
 
 export type RealtimeErrorCode = (typeof realTimeErrorCodes)[number];
@@ -101,6 +102,8 @@ export function realTimeErrorMessage(code: RealtimeErrorCode): string {
             return "Aks couldn’t start the voice conversation right now.";
         case "REALTIME_SESSION_EXPIRED":
             return "The voice conversation expired. Reconnect to continue.";
+        case "REALTIME_SUBSCRIPTION_REQUIRED":
+            return "An active Aks subscription is required.";
     }
 }
 
@@ -119,6 +122,19 @@ export type RealtimeSessionSpec = {
     inputSampleRate: number;
     outputSampleRate: number;
     pcmFormat: "pcm16";
+    /**
+     * How the transport attaches the session token. Absent means the
+     * Authorization Bearer header (OpenAI). Gemini ephemeral tokens use
+     * `access_token` query placement.
+     */
+    auth?: { placement: "header" | "query"; param?: string };
+    /**
+     * Server-selected voice and transcription model (AI_TTS_MODEL /
+     * AI_STT_MODEL). Absent on older specs — adapters fall back to the
+     * protocol defaults, so the OpenAI flow is byte-identical either way.
+     */
+    voice?: string;
+    transcriptionModel?: string;
 };
 
 export type RealtimeProtocolCommand =
@@ -186,4 +202,5 @@ export interface RealtimeConversationSession {
     interrupt(): void;
     stop(): Promise<void>;
     dispose(): void;
+    setAssistantAudioEnabled?(enabled: boolean): void;
 }

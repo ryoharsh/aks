@@ -18,9 +18,11 @@ import { useResolveClassNames } from "uniwind";
 
 import AppText from "@/components/ui/Text";
 import IconButton from "@/components/ui/IconButton";
+import { useBottomSheet } from "@/components/ui/BottomSheetProvider";
 import { usePreferences } from "@/providers/PreferencesProvider";
 import type { NotificationCategoryKey } from "@/services/preferences.service";
 import type { YouStackParamList } from "@/navigation/routes";
+import { copy } from "@/constants/copy";
 
 type Props = NativeStackScreenProps<YouStackParamList, "Notifications">;
 
@@ -39,37 +41,32 @@ const notificationItems: NotificationItem[] = [
     {
         key: "insights",
         icon: BulbIcon,
-        title: "New insights",
-        description: "When Aks notices a meaningful pattern.",
+        title: copy.notifications.categories.insightsTitle,
+        description: copy.notifications.categories.insightsDescription,
     },
     {
         key: "experiments",
         icon: ChartLineData01Icon,
-        title: "Experiment updates",
-        description: "Reminders and outcomes from active experiments.",
+        title: copy.notifications.categories.experimentsTitle,
+        description: copy.notifications.categories.experimentsDescription,
     },
     {
         key: "checkIns",
         icon: Clock01Icon,
-        title: "Check-in reminders",
-        description: "A gentle prompt to reflect on your day.",
+        title: copy.notifications.categories.checkInsTitle,
+        description: copy.notifications.categories.checkInsDescription,
     },
     {
         key: "weekly",
         icon: Calendar03Icon,
-        title: "Weekly reflection",
-        description: "A summary of what changed during the week.",
+        title: copy.notifications.categories.weeklyTitle,
+        description: copy.notifications.categories.weeklyDescription,
     },
-];
-
-const notificationPreviews = [
-    "I noticed something about yesterday.",
-    "Your experiment has 2 days left.",
-    "You may have learned something this week.",
 ];
 
 export default function NotificationsScreen({ navigation }: Props) {
     const { preferences, updatePreferences } = usePreferences();
+    const { notice } = useBottomSheet();
 
     const enabled = preferences.notificationsEnabled;
     const quietHours = preferences.quietHoursEnabled;
@@ -78,21 +75,30 @@ export default function NotificationsScreen({ navigation }: Props) {
     const iconColor = useResolveClassNames("text-text-medium").color;
     const activeColor = useResolveClassNames("text-primary").color;
 
+    // The switches are controlled by context state, so a failed persist can
+    // never leave a toggle visually enabled — the value snaps back. The
+    // catch surfaces the failure instead of an unhandled rejection.
+    const persist = (patch: Parameters<typeof updatePreferences>[0]) => {
+        void updatePreferences(patch).catch(() => {
+            notice(copy.common.pleaseTryAgain, copy.common.checkConnection);
+        });
+    };
+
     const updateSetting = (
         key: NotificationKey,
         value: boolean
     ) => {
-        void updatePreferences({
+        persist({
             notificationCategories: { ...settings, [key]: value },
         });
     };
 
     const setEnabled = (value: boolean) => {
-        void updatePreferences({ notificationsEnabled: value });
+        persist({ notificationsEnabled: value });
     };
 
     const setQuietHours = (value: boolean) => {
-        void updatePreferences({ quietHoursEnabled: value });
+        persist({ quietHoursEnabled: value });
     };
 
     return (
@@ -116,7 +122,7 @@ export default function NotificationsScreen({ navigation }: Props) {
                     variant="title"
                     className="text-text-high"
                 >
-                    Notifications
+                    {copy.notifications.header}
                 </AppText>
             </Animated.View>
 
@@ -132,22 +138,21 @@ export default function NotificationsScreen({ navigation }: Props) {
                         variant="caption"
                         className="mb-2 tracking-[1.5px] text-text-low"
                     >
-                        STAY IN THE LOOP
+                        {copy.notifications.eyebrow}
                     </AppText>
 
                     <AppText
                         variant="display"
                         className="text-text-high"
                     >
-                        Only when it matters.
+                        {copy.notifications.title}
                     </AppText>
 
                     <AppText
                         variant="body"
                         className="mt-3 leading-6 text-text-low"
                     >
-                        Choose when Aks can reach out. You can change these
-                        preferences at any time.
+                        {copy.notifications.description}
                     </AppText>
                 </Animated.View>
 
@@ -159,7 +164,7 @@ export default function NotificationsScreen({ navigation }: Props) {
                         variant="caption"
                         className="mb-3 tracking-[1.5px] text-text-low"
                     >
-                        NOTIFICATIONS
+                        {copy.notifications.sectionMain}
                     </AppText>
 
                     <View className="rounded-[28px] border border-border bg-surface p-5">
@@ -177,14 +182,14 @@ export default function NotificationsScreen({ navigation }: Props) {
                                     variant="button"
                                     className="text-text-high"
                                 >
-                                    Allow notifications
+                                    {copy.notifications.allowTitle}
                                 </AppText>
 
                                 <AppText
                                     variant="caption"
                                     className="mt-1 text-text-low"
                                 >
-                                    Pause or resume all Aks notifications.
+                                    {copy.notifications.allowDescription}
                                 </AppText>
                             </View>
 
@@ -209,7 +214,7 @@ export default function NotificationsScreen({ navigation }: Props) {
                         variant="caption"
                         className="mb-3 tracking-[1.5px] text-text-low"
                     >
-                        WHAT AKS CAN SEND
+                        {copy.notifications.categoriesSection}
                     </AppText>
 
                     <View className="overflow-hidden rounded-[28px] border border-border bg-surface">
@@ -270,7 +275,7 @@ export default function NotificationsScreen({ navigation }: Props) {
                         variant="caption"
                         className="mb-3 tracking-[1.5px] text-text-low"
                     >
-                        QUIET HOURS
+                        {copy.notifications.quietSection}
                     </AppText>
 
                     <Pressable
@@ -295,14 +300,14 @@ export default function NotificationsScreen({ navigation }: Props) {
                                 variant="button"
                                 className="text-text-high"
                             >
-                                Quiet hours
+                                {copy.notifications.quietTitle}
                             </AppText>
 
                             <AppText
                                 variant="caption"
                                 className="mt-1 text-text-low"
                             >
-                                Silence notifications from 10:00 PM to 8:00 AM.
+                                {copy.notifications.quietDescription}
                             </AppText>
                         </View>
 
@@ -327,45 +332,7 @@ export default function NotificationsScreen({ navigation }: Props) {
                         variant="caption"
                         className="mb-3 tracking-[1.5px] text-text-low"
                     >
-                        NOTIFICATION PREVIEW
-                    </AppText>
-
-                    <View className="overflow-hidden rounded-[28px] border border-border bg-surface">
-                        {notificationPreviews.map((message, index) => (
-                            <View
-                                key={message}
-                                className={`px-5 py-5 ${index < notificationPreviews.length - 1
-                                        ? "border-b border-border"
-                                        : ""
-                                    }`}
-                            >
-                                <AppText
-                                    variant="body"
-                                    className="leading-6 text-text-high"
-                                >
-                                    “{message}”
-                                </AppText>
-
-                                <AppText
-                                    variant="caption"
-                                    className="mt-2 text-text-low"
-                                >
-                                    Aks notification
-                                </AppText>
-                            </View>
-                        ))}
-                    </View>
-                </Animated.View>
-
-                <Animated.View
-                    entering={FadeInUp.duration(450).delay(400)}
-                    className="mt-9"
-                >
-                    <AppText
-                        variant="caption"
-                        className="mb-3 tracking-[1.5px] text-text-low"
-                    >
-                        DEVICE SETTINGS
+                        {copy.notifications.deviceSection}
                     </AppText>
 
                     <Pressable
@@ -388,15 +355,14 @@ export default function NotificationsScreen({ navigation }: Props) {
                                 variant="button"
                                 className="text-text-high"
                             >
-                                Manage device notifications
+                                {copy.notifications.deviceTitle}
                             </AppText>
 
                             <AppText
                                 variant="caption"
                                 className="mt-1 text-text-low"
                             >
-                                Open your device settings to manage Aks
-                                permissions.
+                                {copy.notifications.deviceDescription}
                             </AppText>
                         </View>
 
@@ -416,16 +382,14 @@ export default function NotificationsScreen({ navigation }: Props) {
                         variant="caption"
                         className="tracking-[1.5px] text-text-low"
                     >
-                        A NOTE FROM AKS
+                        {copy.notifications.noteCaption}
                     </AppText>
 
                     <AppText
                         variant="body"
                         className="mt-3 leading-6 text-text-low"
                     >
-                        Notifications should support your attention, not
-                        compete for it. Aks will respect the preferences you
-                        choose here.
+                        {copy.notifications.noteBody}
                     </AppText>
                 </Animated.View>
             </ScrollView>

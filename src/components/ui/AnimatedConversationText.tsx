@@ -5,12 +5,14 @@ import Animated, {
     FadeInDown,
     FadeOutUp,
     useAnimatedStyle,
+    useReducedMotion,
     useSharedValue,
     withDelay,
     withTiming,
 } from "react-native-reanimated";
 
 import AppText from "@/components/ui/Text";
+import { copy } from "@/constants/copy";
 
 type Role = "user" | "assistant";
 
@@ -88,6 +90,7 @@ export default function AnimatedConversationText({
     role,
     messageKey,
 }: Props) {
+    const reduceMotion = useReducedMotion();
     const words = useMemo(
         () => text.trim().split(/\s+/).filter(Boolean),
         [text],
@@ -110,20 +113,20 @@ export default function AnimatedConversationText({
         <View className="w-full items-center px-8">
             <Animated.View
                 key={messageKey}
-                entering={FadeInDown.duration(350)}
-                exiting={FadeOutUp.duration(250)}
+                entering={reduceMotion ? undefined : FadeInDown.duration(350)}
+                exiting={reduceMotion ? undefined : FadeOutUp.duration(250)}
                 className="w-full items-center"
             >
                 <AppText
                     variant="caption"
                     className="mb-2.5 mt-5 text-center tracking-[2.5px] text-text-low"
                 >
-                    {role === "assistant" ? "aks" : "you"}
+                    {role === "assistant" ? copy.aiConversation.aksTag : copy.aiConversation.youTag}
                 </AppText>
 
                 <View className="flex-row flex-wrap justify-center">
                     {words.map((word, index) => {
-                        const animated = index < MAX_ANIMATED_WORDS;
+                        const animated = index < MAX_ANIMATED_WORDS && !reduceMotion;
                         return (
                             <View
                                 key={`${messageKey}-${index}`}

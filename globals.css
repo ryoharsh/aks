@@ -36,3 +36,67 @@
   --font-satoshi-black: "Satoshi-Black";
   --font-satoshi-light: "Satoshi-Light";
 }
+
+:root {
+  /* Dark theme palette. Both themes define the same variable set so Uniwind
+     can switch at runtime and no theme is left with missing variables. */
+  @variant dark {
+    --color-background: #0E0E10;
+    --color-white-bg: #16161A;
+    --color-surface: #1B1B1F;
+    --color-card: #1B1B1F;
+
+    --color-text-high: #F2F2F3;
+    --color-text-medium: #A0A0A8;
+    --color-text-low: #7E7E86;
+    --color-text-disabled: #52525A;
+
+    --color-primary: #F2F2F3;
+    --color-primary-foreground: #18181B;
+
+    --color-secondary: #7E7E86;
+    --color-secondary-foreground: #E4E4E7;
+
+    --color-border: #26262B;
+    --color-border-strong: #33333A;
+
+    --color-success: #6FB095;
+    --color-success-soft: #1E2A24;
+
+    --color-warning: #C9A468;
+    --color-warning-soft: #2E2718;
+
+    --color-error: #CE7373;
+    --color-error-soft: #331F1F;
+  }
+
+  @variant light {
+    --color-background: #F2F2F2;
+    --color-white-bg: #FFFFFF;
+    --color-surface: #FFFFFF;
+    --color-card: #FFFFFF;
+
+    --color-text-high: #171717;
+    --color-text-medium: #525252;
+    --color-text-low: #737373;
+    --color-text-disabled: #A3A3A3;
+
+    --color-primary: #171717;
+    --color-primary-foreground: #FFFFFF;
+
+    --color-secondary: #737373;
+    --color-secondary-foreground: #FFFFFF;
+
+    --color-border: #E2E2E2;
+    --color-border-strong: #D4D4D4;
+
+    --color-success: #4F806B;
+    --color-success-soft: #E4F0EA;
+
+    --color-warning: #A67C45;
+    --color-warning-soft: #F4EBDC;
+
+    --color-error: #B85C5C;
+    --color-error-soft: #F6E4E4;
+  }
+}

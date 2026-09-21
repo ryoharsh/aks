@@ -72,6 +72,15 @@ export const isSupabaseConfigured = Boolean(
         process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY),
 );
 
+/**
+ * Fail fast with a clear configuration error instead of issuing requests
+ * against the placeholder host. Repositories and function adapters call this
+ * before any network access; properly configured builds never trip it.
+ */
+export function assertSupabaseConfigured(): void {
+    if (!isSupabaseConfigured) throw new Error("SUPABASE_NOT_CONFIGURED");
+}
+
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
     auth: {
         storage: secureStoreAdapter,

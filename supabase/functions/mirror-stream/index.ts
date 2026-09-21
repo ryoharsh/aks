@@ -15,11 +15,14 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { aiService } from "../_shared/ai/ai.service.ts";
 import { isPolicyBlockedError } from "../_shared/ai/types.ts";
 import { buildMirrorContext } from "../_shared/mirror/context.ts";
-import { crisisResponse, requiresCrisisResponse } from "../_shared/mirror/safety.ts";
+import { requiresCrisisResponse } from "../_shared/mirror/safety.ts";
+import { crisisResponseFor } from "../_shared/mirror/crisis-response.ts";
+import { requireActiveSubscription } from "../_shared/subscription/subscription.ts";
 import { createMirrorRepository } from "../_shared/mirror/mirror.repository.ts";
 import { conversationResponseTask } from "../_shared/mirror/prompts.ts";
 import { validateConversationResponse } from "../_shared/mirror/validation.ts";
-import { relevantSourcesForMessage } from "../_shared/mirror/mirror.core.ts";
+import { persistAssistantReply, relevantSourcesForMessage } from "../_shared/mirror/mirror.core.ts";
+import { knownResponseLanguage } from "../_shared/mirror/languages.ts";
 
 const headers = { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive", "Access-Control-Allow-Origin": "*" };
 const jsonHeaders = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" };
@@ -41,7 +44,7 @@ Deno.serve(async (request) => {
         const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
         if (!authorization || !url || !anonKey || !serviceRoleKey) return respond({ error: { code: "UNAUTHORIZED", message: "Please sign in to continue." } }, 401);
 
-        let body: { conversationId?: unknown; userMessageId?: unknown };
+        let body: { conversationId?: unknown; userMessageId?: unknown; regenerate?: unknown; language?: unknown };
         try {
             body = await request.json();
         } catch {
@@ -56,18 +59,27 @@ Deno.serve(async (request) => {
         if (error || !user) return respond({ error: { code: "UNAUTHORIZED", message: "Please sign in to continue." } }, 401);
 
         const adminClient = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
+        const subscription = await requireActiveSubscription(adminClient, user.id);
+        if (!subscription.ok) return respond({ error: { code: subscription.code, message: subscription.message } }, 402);
         const repository = createMirrorRepository(userClient, adminClient, user.id);
 
         const stream = new ReadableStream<Uint8Array>({
             async start(controller) {
                 let runId: string | null = null;
+                let runFinished = false;
                 try {
+                    const regenerate = body.regenerate === true;
+                    // The language the client is displaying, when it sent one. An
+                    // unrecognized code is ignored rather than trusted, so the
+                    // stored preference stays in place.
+                    const requestedLanguage = knownResponseLanguage(body.language);
                     const conversation = await repository.getConversation(body.conversationId!);
                     const userMessage = await repository.getUserMessage(body.conversationId!, body.userMessageId!);
                     if (userMessage.content.length > 12000) throw new Error("MESSAGE_TOO_LARGE");
 
                     const existingReply = await repository.findAssistantReply(body.conversationId!, body.userMessageId!);
-                    if (existingReply) {
+                    if (regenerate && !existingReply) throw new Error("NOTHING_TO_REGENERATE");
+                    if (existingReply && !regenerate) {
                         await repository.reconcileAIRun(body.userMessageId!, conversationResponseTask.task).catch(() => undefined);
                         const safetyResponse = existingReply.metadata.task_version === "safety_response_v1";
                         sse(controller, {
@@ -82,14 +94,32 @@ Deno.serve(async (request) => {
                     }
 
                     if (requiresCrisisResponse(userMessage.content)) {
-                        const assistantMessage = await repository.saveAssistant({ conversationId: body.conversationId!, userMessageId: body.userMessageId!, content: crisisResponse, responseText: crisisResponse, followUp: null, taskVersion: "safety_response_v1" });
-                        sse(controller, { type: "delta", text: crisisResponse });
-                        sse(controller, { type: "done", conversationId: body.conversationId, response: { response: { text: crisisResponse }, followUp: null }, assistantMessage, observable: false });
+                        // This path short-circuits before the context load, so the
+                        // language is resolved here. A failed preference read must
+                        // never delay or block the safety response, so it degrades
+                        // to English instead of throwing.
+                        const stored = requestedLanguage ? null : (await repository.getPreferences().catch(() => null))?.language ?? null;
+                        const crisisText = crisisResponseFor(requestedLanguage ?? stored);
+                        const assistantMessage = await persistAssistantReply({
+                            repository,
+                            conversationId: body.conversationId!,
+                            userMessageId: body.userMessageId!,
+                            regenerate,
+                            existing: existingReply,
+                            content: crisisText,
+                            responseText: crisisText,
+                            followUp: null,
+                            taskVersion: "safety_response_v1",
+                        });
+                        sse(controller, { type: "delta", text: crisisText });
+                        sse(controller, { type: "done", conversationId: body.conversationId, response: { response: { text: crisisText }, followUp: null }, assistantMessage, observable: false });
                         controller.close();
                         return;
                     }
 
-                    const claim = await repository.claimAIRun({ conversationId: body.conversationId!, userMessageId: body.userMessageId!, task: conversationResponseTask.task });
+                    const claim = regenerate
+                        ? await repository.claimRegenerationRun({ conversationId: body.conversationId!, userMessageId: body.userMessageId!, task: conversationResponseTask.task })
+                        : await repository.claimAIRun({ conversationId: body.conversationId!, userMessageId: body.userMessageId!, task: conversationResponseTask.task });
                     if (claim.status === "succeeded") {
                         sse(controller, { type: "error", code: "ATTEMPTS_EXHAUSTED" });
                         controller.close();
@@ -107,9 +137,12 @@ Deno.serve(async (request) => {
                         repository.getPreferences(),
                         repository.getContextBundle(userMessage.createdAt, 6, 8, relevantSourcesForMessage(userMessage.content)),
                     ]);
-                    const context = buildMirrorContext({ currentMessage: userMessage.content, conversation: { title: conversation.title }, recentMessages, recentSignals, activeMemories, supportedPatterns, activeExperiments, relevantLearnings, preferences, contextSources: contextBundle.connectedSources, relevantObservations: contextBundle.observations.slice(0, 8) });
+                    const responseLanguage = requestedLanguage ?? preferences.language ?? null;
+                    const context = buildMirrorContext({ currentMessage: userMessage.content, conversation: { title: conversation.title }, recentMessages, recentSignals, activeMemories, supportedPatterns, activeExperiments, relevantLearnings, preferences: { ...preferences, language: responseLanguage }, contextSources: contextBundle.connectedSources, relevantObservations: contextBundle.observations.slice(0, 8) });
 
-                    let streamedText = "";
+                    // The client's own disconnection aborts the provider call: a
+                    // stream nobody is reading should not keep burning tokens, and
+                    // nothing is persisted for an aborted turn.
                     const result = await aiService.generateStream!(
                         {
                             task: conversationResponseTask.task,
@@ -118,9 +151,9 @@ Deno.serve(async (request) => {
                             context,
                         },
                         (text) => {
-                            streamedText += text;
                             sse(controller, { type: "delta", text });
                         },
+                        request.signal,
                     );
 
                     // The provider stream surfaces the safety field before text;
@@ -132,44 +165,59 @@ Deno.serve(async (request) => {
                         throw new Error("INVALID_AI_RESPONSE");
                     }
                     const riskImminent = validated.safety.risk === "imminent";
-                    let finalText = validated.response.text;
-                    let observable = true;
-                    if (riskImminent) {
-                        streamedText = "";
-                        finalText = crisisResponse;
-                        observable = false;
-                    }
+                    const finalText = riskImminent ? crisisResponseFor(responseLanguage) : validated.response.text;
+                    // Identical persistence semantics to the non-streaming turn: the
+                    // visible content carries the follow-up, and a controlled safety
+                    // response never keeps the model's follow-up attached.
+                    const followUp = riskImminent ? null : validated.followUp;
+                    const observable = !riskImminent;
 
-                    const assistantMessage = await (async () => {
-                        try {
-                            return await repository.saveAssistant({ conversationId: body.conversationId!, userMessageId: body.userMessageId!, content: finalText, responseText: finalText, followUp: validated.followUp, taskVersion: conversationResponseTask.version });
-                        } catch {
-                            const existing = await repository.findAssistantReply(body.conversationId!, body.userMessageId!);
-                            if (!existing) throw new Error("ASSISTANT_PERSISTENCE_FAILED");
-                            return existing;
-                        }
-                    })();
+                    const assistantMessage = await persistAssistantReply({
+                        repository,
+                        conversationId: body.conversationId!,
+                        userMessageId: body.userMessageId!,
+                        regenerate,
+                        existing: existingReply,
+                        content: followUp ? `${finalText}\n\n${followUp}` : finalText,
+                        responseText: finalText,
+                        followUp,
+                        taskVersion: riskImminent ? "safety_response_v1" : conversationResponseTask.version,
+                    });
 
                     await repository.updateAIRun(runId!, {
                         status: "succeeded",
+                        provider: result.provider,
+                        model: result.model,
+                        latency_ms: result.latencyMs,
+                        input_tokens: result.usage?.inputTokens ?? null,
+                        output_tokens: result.usage?.outputTokens ?? null,
                         completed_at: new Date().toISOString(),
                     }).catch(() => undefined);
+                    runFinished = true;
 
                     // If the safety replacement happened, correct the client's
                     // streamed text with the authoritative content.
-                    if (riskImminent) sse(controller, { type: "delta", text: crisisResponse, replace: true });
+                    if (riskImminent) sse(controller, { type: "delta", text: crisisResponseFor(responseLanguage), replace: true });
                     sse(controller, {
                         type: "done",
                         conversationId: body.conversationId,
-                        response: { response: { text: finalText }, followUp: validated.followUp },
+                        response: { response: { text: finalText }, followUp },
                         assistantMessage,
                         observable,
                     });
                     controller.close();
                 } catch (error) {
                     const message = error instanceof Error ? error.message : "";
-                    const code = message === "INVALID_AI_RESPONSE" ? "INVALID_AI_OUTPUT" : message.startsWith("RATE_LIMITED") ? "RATE_LIMITED" : isPolicyBlockedError(error) ? "POLICY_BLOCKED" : message === "MESSAGE_TOO_LARGE" ? "MESSAGE_TOO_LARGE" : "AI_UNAVAILABLE";
-                    if (runId) {
+                    const code = message === "INVALID_AI_RESPONSE" ? "INVALID_AI_OUTPUT"
+                        : message.startsWith("RATE_LIMITED") ? "RATE_LIMITED"
+                        : message === "NOTHING_TO_REGENERATE" ? "NOTHING_TO_REGENERATE"
+                        : message === "ATTEMPTS_EXHAUSTED" ? "ATTEMPTS_EXHAUSTED"
+                        : isPolicyBlockedError(error) ? "POLICY_BLOCKED"
+                        : message === "MESSAGE_TOO_LARGE" ? "MESSAGE_TOO_LARGE"
+                        : "AI_UNAVAILABLE";
+                    // A finished run is never retroactively marked failed because the
+                    // client walked away after the reply had already been persisted.
+                    if (runId && !runFinished) {
                         await repository.updateAIRun(runId, { status: "failed", error_code: message.slice(0, 80) || code, completed_at: new Date().toISOString() }).catch(() => undefined);
                     }
                     try {
@@ -186,6 +234,7 @@ Deno.serve(async (request) => {
     } catch (error) {
         const message = error instanceof Error ? error.message : "";
         if (message === "ATTEMPTS_EXHAUSTED") return respond({ error: { code: "ATTEMPTS_EXHAUSTED", message: "This response can no longer be retried." } }, 409);
+        if (message === "NOTHING_TO_REGENERATE") return respond({ error: { code: "NOTHING_TO_REGENERATE", message: "There is no response to refresh here." } }, 409);
         if (message === "RATE_LIMITED") return respond({ error: { code: "RATE_LIMITED", message: "Please wait a moment before trying again." } }, 429);
         if (message === "MESSAGE_TOO_LARGE") return respond({ error: { code: "INVALID_REQUEST", message: "That message is too long." } }, 400);
         if (["CONVERSATION_UNAVAILABLE", "MESSAGE_UNAVAILABLE"].includes(message)) return respond({ error: { code: "NOT_FOUND", message: "This conversation is unavailable." } }, 404);

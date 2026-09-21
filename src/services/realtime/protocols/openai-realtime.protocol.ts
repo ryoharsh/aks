@@ -45,13 +45,17 @@ export class OpenAIRealtimeProtocol implements RealtimeSessionProtocol {
     build(command: RealtimeProtocolCommand): unknown[] {
         switch (command.type) {
             case "sessionStart":
+                // Voice and transcription come from the server-issued spec
+                // (AI_TTS_MODEL / AI_STT_MODEL); the literals below are only
+                // the fallback for specs minted before selection existed.
                 return [{
                     type: "session.update",
                     session: {
                         ...SESSION_DEFAULTS,
                         instructions: this.spec.instructions,
                         model: this.spec.model,
-                        input_audio_transcription: SESSION_DEFAULTS.input_audio_transcription,
+                        voice: this.spec.voice ?? SESSION_DEFAULTS.voice,
+                        input_audio_transcription: { model: this.spec.transcriptionModel ?? SESSION_DEFAULTS.input_audio_transcription.model },
                         turn_detection: SESSION_DEFAULTS.turn_detection,
                     },
                 }];

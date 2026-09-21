@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+import { requireActiveSubscription } from "../_shared/subscription/subscription.ts";
 import { aiService } from "../_shared/ai/ai.service.ts";
 import { createExperimentRepository } from "../_shared/experiment/experiment.repository.ts";
 import { createExperimentService } from "../_shared/experiment/experiment.service.ts";
@@ -27,6 +28,8 @@ Deno.serve(async (request) => {
         const body = await request.json() as Record<string, unknown>;
         if (typeof body.action !== "string") return respond({ error: { code: "INVALID_REQUEST", message: "Invalid experiment request." } }, 400);
         const adminClient = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
+        const subscription = await requireActiveSubscription(adminClient, user.id);
+        if (!subscription.ok) return respond({ error: { code: subscription.code, message: subscription.message } }, 402);
         const experimentRepository = createExperimentRepository(userClient, adminClient, user.id);
         const service = createExperimentService(experimentRepository, aiService);
         const learningService = createLearningService(createLearningRepository(userClient, adminClient, user.id), aiService);

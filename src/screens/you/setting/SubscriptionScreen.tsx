@@ -20,14 +20,19 @@ import IconButton from "@/components/ui/IconButton";
 import AppText from "@/components/ui/Text";
 import { useSubscription } from "@/hooks/useSubscription";
 import { formatDate } from "@/lib/date";
-import type { SettingsStackParamList } from "@/navigation/routes";
+import type {
+    RootStackParamList,
+    SettingsStackParamList,
+} from "@/navigation/routes";
 import { SUBSCRIPTION_DISPLAY_NAME } from "@/services/subscription/subscription.constants";
 import type { SubscriptionOption } from "@/services/subscription/subscription.types";
+import { copy } from "@/constants/copy";
 
-type Props = NativeStackScreenProps<
-    SettingsStackParamList,
-    "Subscription"
->;
+// Rendered both inside Settings and as the root-level access gate
+// (`SubscriptionRequired`); only `goBack`/`canGoBack` are used.
+type Props =
+    | NativeStackScreenProps<SettingsStackParamList, "Subscription">
+    | NativeStackScreenProps<RootStackParamList, "SubscriptionRequired">;
 
 /* -------------------------------------------------------------------------- */
 /* Current subscription                                                       */
@@ -62,7 +67,7 @@ function PremiumCard() {
                         variant="caption"
                         className="tracking-[1.5px] text-text-low"
                     >
-                        CURRENT PLAN
+                        {copy.subscription.currentPlan}
                     </AppText>
 
                     <AppText
@@ -78,7 +83,7 @@ function PremiumCard() {
                         variant="caption"
                         className="text-text-medium"
                     >
-                        Active
+                        {copy.subscription.activeBadge}
                     </AppText>
                 </View>
             </View>
@@ -101,7 +106,7 @@ function PremiumCard() {
                         variant="caption"
                         className="tracking-[1.5px] text-text-low"
                     >
-                        BILLING
+                        {copy.subscription.billing}
                     </AppText>
 
                     <AppText
@@ -110,11 +115,11 @@ function PremiumCard() {
                     >
                         {state.status === "active"
                             ? plan?.expiresAt
-                                ? `Renews on ${formatDate(plan.expiresAt)}`
-                                : "Your plan is active."
+                                ? copy.subscription.renewsOn(formatDate(plan.expiresAt))
+                                : copy.subscription.planActive
                             : plan?.expiresAt
-                                ? `Access until ${formatDate(plan.expiresAt)}`
-                                : "Auto-renewal is off."}
+                                ? copy.subscription.accessUntil(formatDate(plan.expiresAt))
+                                : copy.subscription.autoRenewOff}
                     </AppText>
                 </View>
             </View>
@@ -130,7 +135,7 @@ function PremiumCard() {
                         variant="button"
                         className="text-text-high"
                     >
-                        Manage subscription
+                        {copy.subscription.manage}
                     </AppText>
                 </Button>
 
@@ -144,7 +149,7 @@ function PremiumCard() {
                         variant="button"
                         className="text-text-medium"
                     >
-                        Restore purchases
+                        {copy.subscription.restore}
                     </AppText>
                 </Button>
             </View>
@@ -186,7 +191,7 @@ function PlanCard({
                         variant="caption"
                         className="tracking-[1.3px] text-text-medium"
                     >
-                        BEST VALUE
+                        {copy.subscription.bestValue}
                     </AppText>
                 </View>
             ) : null}
@@ -198,7 +203,7 @@ function PlanCard({
                             variant="caption"
                             className="tracking-[1.5px] text-text-low"
                         >
-                            AKS PREMIUM
+                            {copy.subscription.premiumEyebrow}
                         </AppText>
 
                         <AppText
@@ -234,7 +239,7 @@ function PlanCard({
                         />
 
                         <AppText className="ml-2 flex-1 text-text-medium">
-                            Full access to Aks Premium
+                            {copy.subscription.premiumAccess}
                         </AppText>
                     </View>
                 </View>
@@ -249,7 +254,7 @@ function PlanCard({
                         variant="button"
                         className="text-primary-foreground"
                     >
-                        Continue with {option.title}
+                        {copy.subscription.continueWith(option.title)}
                     </AppText>
                 </Button>
             </View>
@@ -299,19 +304,18 @@ function PlansCard() {
                     variant="caption"
                     className="tracking-[1.5px] text-text-low"
                 >
-                    CHOOSE YOUR PLAN
+                    {copy.subscription.choosePlan}
                 </AppText>
 
                 <AppText
                     variant="title"
                     className="mt-2 text-text-high"
                 >
-                    Spend more time with Aks.
+                    {copy.subscription.chooseTitle}
                 </AppText>
 
                 <AppText className="mt-2 leading-6 text-text-low">
-                    Choose the rhythm that works for you. You can
-                    manage or restore your subscription at any time.
+                    {copy.subscription.chooseDescription}
                 </AppText>
             </Animated.View>
 
@@ -323,10 +327,8 @@ function PlansCard() {
                 >
                     <AppText className="text-text-medium">
                         {state.plan?.expiresAt
-                            ? `Your Premium access ended on ${formatDate(
-                                state.plan.expiresAt,
-                            )}.`
-                            : "Your Premium access has ended."}
+                            ? copy.subscription.expiredWithDate(formatDate(state.plan.expiresAt))
+                            : copy.subscription.expiredFallback}
                     </AppText>
                 </Animated.View>
             ) : null}
@@ -346,8 +348,7 @@ function PlansCard() {
                     </View>
 
                     <AppText className="mt-4 text-center text-text-medium">
-                        Plans aren't listed right now. Please check
-                        back in a moment.
+                        {copy.subscription.plansEmpty}
                     </AppText>
 
                     <Button
@@ -360,7 +361,7 @@ function PlansCard() {
                             variant="button"
                             className="text-text-high"
                         >
-                            Try again
+                            {copy.common.tryAgain}
                         </AppText>
                     </Button>
                 </Animated.View>
@@ -392,7 +393,7 @@ function PlansCard() {
                     variant="button"
                     className="text-text-medium"
                 >
-                    Restore purchases
+                    {copy.subscription.restore}
                 </AppText>
             </Button>
         </View>
@@ -411,6 +412,8 @@ export default function SubscriptionScreen({
 
     const iconColor =
         useResolveClassNames("text-text-medium").color;
+    // No back navigation when this screen is the root-level access gate.
+    const canGoBack = navigation.canGoBack();
 
     useEffect(() => {
         void refresh();
@@ -427,22 +430,24 @@ export default function SubscriptionScreen({
                 entering={FadeInUp.duration(400)}
                 className="h-16 flex-row items-center px-5"
             >
-                <IconButton
-                    onPress={() => navigation.goBack()}
-                    className="mr-3"
-                >
-                    <HugeiconsIcon
-                        icon={ArrowLeft01Icon}
-                        size={22}
-                        color={iconColor}
-                    />
-                </IconButton>
+                {canGoBack ? (
+                    <IconButton
+                        onPress={() => navigation.goBack()}
+                        className="mr-3"
+                    >
+                        <HugeiconsIcon
+                            icon={ArrowLeft01Icon}
+                            size={22}
+                            color={iconColor}
+                        />
+                    </IconButton>
+                ) : null}
 
                 <AppText
                     variant="title"
                     className="text-text-high"
                 >
-                    Subscription
+                    {copy.subscription.header}
                 </AppText>
             </Animated.View>
 
@@ -459,20 +464,18 @@ export default function SubscriptionScreen({
                         variant="caption"
                         className="mb-2 tracking-[1.5px] text-text-low"
                     >
-                        YOUR PLAN
+                        {copy.subscription.eyebrow}
                     </AppText>
 
                     <AppText
                         variant="display"
                         className="text-text-high"
                     >
-                        Aks plan and billing.
+                        {copy.subscription.title}
                     </AppText>
 
                     <AppText className="mt-3 leading-6 text-text-low">
-                        Review your current plan and billing status.
-                        Subscription management can be connected when
-                        billing is available.
+                        {copy.subscription.description}
                     </AppText>
                 </Animated.View>
 
@@ -500,7 +503,7 @@ export default function SubscriptionScreen({
                         />
 
                         <AppText className="mt-3 text-text-medium">
-                            Checking your plan…
+                            {copy.subscription.checkingPlan}
                         </AppText>
                     </Animated.View>
                 ) : null}
@@ -513,7 +516,7 @@ export default function SubscriptionScreen({
                     >
                         <AppText className="text-text-medium">
                             {notice ??
-                                "We couldn't check your plan. Please try again."}
+                                copy.subscription.fallbackError}
                         </AppText>
 
                         <Button
@@ -526,7 +529,7 @@ export default function SubscriptionScreen({
                                 variant="button"
                                 className="text-text-high"
                             >
-                                Try again
+                                {copy.common.tryAgain}
                             </AppText>
                         </Button>
                     </Animated.View>
@@ -550,14 +553,11 @@ export default function SubscriptionScreen({
                             variant="title"
                             className="mt-4 text-[19px] leading-[25px] text-text-high"
                         >
-                            Subscriptions aren't connected on this
-                            device yet.
+                            {copy.subscription.unavailableTitle}
                         </AppText>
 
                         <AppText className="mt-2 leading-6 text-text-medium">
-                            Once billing is available on this device,
-                            plans will appear here and you can review
-                            or manage them from this screen.
+                            {copy.subscription.unavailableBody}
                         </AppText>
                     </Animated.View>
                 ) : null}
@@ -577,14 +577,11 @@ export default function SubscriptionScreen({
                         variant="caption"
                         className="tracking-[1.5px] text-text-low"
                     >
-                        A NOTE FROM AKS
+                        {copy.subscription.noteCaption}
                     </AppText>
 
                     <AppText className="mt-3 leading-6 text-text-low">
-                        Payments are handled entirely by your device's
-                        store, and Aks never stores your payment details.
-                        Purchases can be restored and managed from this
-                        screen at any time.
+                        {copy.subscription.noteBody}
                     </AppText>
                 </Animated.View>
             </ScrollView>

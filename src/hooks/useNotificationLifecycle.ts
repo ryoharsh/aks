@@ -24,7 +24,12 @@ export function useNotificationLifecycle() {
     const { user } = useAuth();
 
     useEffect(() => {
-        void notificationService.initialize().catch(() => undefined);
+        void notificationService.initialize().catch((error) => {
+            // Never crash the app over push setup, but never fail silently
+            // either: the dev log names the cause (usually a missing
+            // EXPO_PUBLIC_ONESIGNAL_APP_ID in the build).
+            if (__DEV__) console.warn("[notifications] initialize failed:", error);
+        });
     }, []);
 
     useEffect(() => {
@@ -40,7 +45,14 @@ export function useNotificationLifecycle() {
             onNotificationOpened: (result) => {
                 if (!result.handled) return;
                 const route = routeForTap(result.payload);
-                if (route) navigationBus.requestTimelineNavigation(route);
+                if (route) {
+                    navigationBus.requestTimelineNavigation(route);
+                } else if (__DEV__) {
+                    // Unsupported destination: log instead of silently
+                    // dropping the tap. Insight/experiment routing above is
+                    // unchanged.
+                    console.warn("[notifications] unhandled tap payload:", result.payload);
+                }
             },
             onForegroundNotification: (result, preventDefault) => {
                 // Aks keeps the open app calm: taps are handled, but we don't

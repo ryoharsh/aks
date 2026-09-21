@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { Alert } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Animated, {
     FadeIn,
@@ -23,7 +21,9 @@ import type { AuthStackParamList } from "@/navigation/routes";
 import LogoMark from "@/components/common/LogoMark";
 import LegalLinks from "@/components/common/LegalLinks";
 import EmailConfirmation from "@/components/auth/EmailConfirmation";
+import { useBottomSheet } from "@/components/ui/BottomSheetProvider";
 import { useAuth } from "@/hooks/useAuth";
+import { copy } from "@/constants/copy";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Login">;
 const facebookEnabled = process.env.EXPO_PUBLIC_AUTH_FACEBOOK_ENABLED === "true";
@@ -33,6 +33,7 @@ export default function LoginScreen({ navigation }: Props) {
     const [loading, setLoading] = useState(false);
     const [sentEmail, setSentEmail] = useState<string | null>(null);
     const { callbackError, clearCallbackError, signInWithMagicLink, signInWithProvider } = useAuth();
+    const { notice } = useBottomSheet();
 
     const handleMagicLink = async () => {
         if (!email.trim() || loading) return;
@@ -42,9 +43,9 @@ export default function LoginScreen({ navigation }: Props) {
             await signInWithMagicLink(email);
             setSentEmail(email.trim().toLowerCase());
         } catch (error) {
-            Alert.alert(
-                "Unable to send sign-in link",
-                error instanceof Error ? error.message : "Please try again.",
+            notice(
+                copy.login.notices.unableToSendLink,
+                error instanceof Error ? error.message : copy.common.pleaseTryAgain,
             );
         } finally {
             setLoading(false);
@@ -58,9 +59,9 @@ export default function LoginScreen({ navigation }: Props) {
             setLoading(true);
             await signInWithProvider(provider);
         } catch (error) {
-            Alert.alert(
-                "Unable to sign in",
-                error instanceof Error ? error.message : "Please try again.",
+            notice(
+                copy.login.notices.unableToSignIn,
+                error instanceof Error ? error.message : copy.common.pleaseTryAgain,
             );
         } finally {
             setLoading(false);
@@ -83,7 +84,6 @@ export default function LoginScreen({ navigation }: Props) {
             className="flex-1 bg-background"
             behavior="padding"
         >
-            <StatusBar style="dark" />
 
             <Animated.View
                 entering={FadeIn.duration(500)}
@@ -108,19 +108,18 @@ export default function LoginScreen({ navigation }: Props) {
                             <AppText
                                 variant="display"
                                 className="font-satoshi-medium text-text-high">
-                                Welcome back.
+                                {copy.login.title}
                             </AppText>
 
                             <AppText
                                 variant="body"
                                 className="mt-3 text-text-low"
                             >
-                                Sign in to continue discovering what Aks
-                                notices about you.
+                                {copy.login.description}
                             </AppText>
                             {callbackError ? (
                                 <Pressable onPress={clearCallbackError} accessibilityRole="button">
-                                    <AppText variant="caption" className="mt-3 text-red-600">{callbackError} Tap to dismiss.</AppText>
+                                    <AppText variant="caption" className="mt-3 text-red-600">{callbackError} {copy.login.dismissError}</AppText>
                                 </Pressable>
                             ) : null}
                         </Animated.View>
@@ -132,7 +131,7 @@ export default function LoginScreen({ navigation }: Props) {
                                 variant="caption"
                                 className="mb-2 text-text-medium"
                             >
-                                Email address
+                                {copy.login.emailLabel}
                             </AppText>
 
                             <TextInput
@@ -142,10 +141,10 @@ export default function LoginScreen({ navigation }: Props) {
                                 autoCorrect={false}
                                 keyboardType="email-address"
                                 textContentType="emailAddress"
-                                placeholder="you@example.com"
+                                placeholder={copy.common.emailPlaceholder}
                                 placeholderTextColor="#A3A3A3"
                                 className="h-14 rounded-2xl border border-border bg-surface px-4 text-[16px] text-text-high"
-                                accessibilityLabel="Email address"
+                                accessibilityLabel={copy.login.emailLabel}
                             />
 
                             <Button
@@ -153,13 +152,13 @@ export default function LoginScreen({ navigation }: Props) {
                                 onPress={handleMagicLink}
                                 loading={loading}
                                 disabled={!email.trim()}
-                                accessibilityLabel="Send sign-in link"
+                                accessibilityLabel={copy.login.sendLinkA11y}
                                 className="mt-4 rounded-2xl">
                                 <AppText
                                     variant="button"
                                     className="text-white"
                                 >
-                                    Sign in
+                                    {copy.login.sendLink}
                                 </AppText>
                             </Button>
 
@@ -167,8 +166,7 @@ export default function LoginScreen({ navigation }: Props) {
                                 variant="caption"
                                 className="mt-3 px-2 text-center text-text-low"
                             >
-                                We'll email you a secure sign-in link.
-                                No password needed.
+                                {copy.login.secureLinkNote}
                             </AppText>
                         </Animated.View>
 
@@ -182,7 +180,7 @@ export default function LoginScreen({ navigation }: Props) {
                                 variant="caption"
                                 className="mx-4 text-text-low"
                             >
-                                OR CONTINUE WITH
+                                {copy.login.divider}
                             </AppText>
 
                             <View className="h-px flex-1 bg-border" />
@@ -196,7 +194,7 @@ export default function LoginScreen({ navigation }: Props) {
                                     onPress={() => handleOAuth("google")}
                                     variant="secondary"
                                     disabled={loading}
-                                    accessibilityLabel="Continue with Google"
+                                    accessibilityLabel={copy.login.googleA11y}
                                     className="flex-1 rounded-full bg-surface"
                                 >
                                     <Image
@@ -209,7 +207,7 @@ export default function LoginScreen({ navigation }: Props) {
                                         variant="button"
                                         className="text-text-high"
                                     >
-                                        Google
+                                        {copy.login.google}
                                     </AppText>
                                 </Button>
 
@@ -217,7 +215,7 @@ export default function LoginScreen({ navigation }: Props) {
                                     onPress={() => handleOAuth("facebook")}
                                     variant="secondary"
                                     disabled={loading}
-                                    accessibilityLabel="Continue with Facebook"
+                                    accessibilityLabel={copy.login.facebookA11y}
                                     className="flex-1 rounded-full bg-surface"
                                 >
                                     <Image
@@ -230,7 +228,7 @@ export default function LoginScreen({ navigation }: Props) {
                                         variant="button"
                                         className="text-text-high"
                                     >
-                                        Facebook
+                                        {copy.login.facebook}
                                     </AppText>
                                 </Button> : null}
                             </View>
@@ -239,7 +237,7 @@ export default function LoginScreen({ navigation }: Props) {
                                 onPress={() => handleOAuth("github")}
                                 variant="secondary"
                                 disabled={loading}
-                                accessibilityLabel="Continue with GitHub"
+                                accessibilityLabel={copy.login.githubA11y}
                                 className="rounded-full bg-surface"
                             >
                                 <Image
@@ -252,7 +250,7 @@ export default function LoginScreen({ navigation }: Props) {
                                     variant="button"
                                     className="text-text-high"
                                 >
-                                    Continue with GitHub
+                                    {copy.login.github}
                                 </AppText>
                             </Button>
                         </Animated.View>
@@ -267,7 +265,7 @@ export default function LoginScreen({ navigation }: Props) {
                                 variant="button"
                                 className="text-text-low"
                             >
-                                Don't have an account?
+                                {copy.login.noAccount}
                             </AppText>
 
                             <Pressable
@@ -280,7 +278,7 @@ export default function LoginScreen({ navigation }: Props) {
                                     variant="button"
                                     className="ml-1 text-[14px] text-text-high"
                                 >
-                                    Create one
+                                    {copy.login.createOne}
                                 </AppText>
                             </Pressable>
                         </View>

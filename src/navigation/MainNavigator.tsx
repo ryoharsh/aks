@@ -29,6 +29,7 @@ import Animated, {
 
 import MirrorScreen from "@/screens/mirror/MirrorScreen";
 import TimelineScreen from "@/screens/timeline/TimelineScreen";
+import { AI_CONVERSATION_ENABLED } from "@/lib/aiConversation";
 import { navigationBus } from "@/services/navigationBus";
 import YouNavigator from "./YouNavigator";
 import type { RootStackParamList } from "./routes";
@@ -102,7 +103,9 @@ export default function MainNavigator() {
 
   const handleMirrorPress = () => {
     if (currentIndex === 1) {
-      navigation.navigate("AiConversation");
+      if (AI_CONVERSATION_ENABLED) {
+        navigation.navigate("AiConversation");
+      }
       return;
     }
 

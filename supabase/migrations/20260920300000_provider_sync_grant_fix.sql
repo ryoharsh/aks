@@ -1,0 +1,21 @@
+-- Provider-sync result permission fix.
+--
+-- record_sync_result is security definer with an auth.uid() self-check for
+-- authenticated callers, and it has TWO legitimate callers:
+--   1. the mobile client sync manager (src/services/context/syncManager.ts)
+--      over the authenticated role, and
+--   2. the provider-sync edge dispatcher (supabase/functions/provider-sync)
+--      over the service_role admin client for claimed jobs.
+-- It was granted to authenticated only, so every dispatcher write failed
+-- with permission denied and claimed jobs could never persist results.
+--
+-- Fix: grant EXECUTE to service_role as well (mirroring
+-- claim_provider_sync_jobs and complete_provider_sync_jobs, which already
+-- carry both roles). The authenticated self-check is untouched, so RLS and
+-- user-scoping boundaries are preserved; the service_role path remains the
+-- trusted claimed-job dispatcher.
+--
+-- No test harness in this repo exercises live PG grants (vitest mocks rpc),
+-- so this is verified by inspection + the grant below. Idempotent.
+
+grant execute on function public.record_sync_result(uuid, text, text, jsonb, text) to service_role;

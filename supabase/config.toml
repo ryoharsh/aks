@@ -447,6 +447,31 @@ entrypoint = "./functions/source-oauth-callback/index.ts"
 # OAuth provider browsers land here (no JWT). Validates the signed state,
 # exchanges the code, stores tokens in Vault, deep-links back to the app.
 
+[functions.auth-callback]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/auth-callback/index.ts"
+# Browser OAuth redirects land here (no Supabase JWT). verify_jwt must stay
+# false or sign-in callbacks return 401.
+
+[functions.delete-account]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/delete-account/index.ts"
+# Authenticated app calls via supabase.functions.invoke (user JWT attached).
+
+[functions.mirror-observe]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/mirror-observe/index.ts"
+# Authenticated app calls via supabase.functions.invoke (user JWT attached).
+
+[functions.realtime-session]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/realtime-session/index.ts"
+# Authenticated app calls via supabase.functions.invoke (user JWT attached).
+
 [functions.revenuecat-webhook]
 enabled = true
 verify_jwt = false

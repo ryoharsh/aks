@@ -2,7 +2,8 @@ import { supabase } from "@/lib/supabase";
 import { requireAuthenticatedUser, throwDataError } from "@/repositories/data.repository";
 import { permissionManager } from "./permissions";
 import { sourceAdapters } from "./adapters";
-import { SOURCE_DEFINITIONS, SOURCE_GROUPS, type ContextSourceType, type ObservationDraft, type SourceDefinition, type SourceRecord, type SourceState } from "./types";
+import { SOURCE_DEFINITIONS, SOURCE_GROUPS, CONNECTABLE_SOURCES, type ContextSourceType, type ObservationDraft, type SourceDefinition, type SourceRecord, type SourceState } from "./types";
+import { copy } from "@/constants/copy";
 
 type Row = {
     source_type: ContextSourceType;
@@ -30,16 +31,22 @@ export const contextService = {
     async listSources(): Promise<SourceRecord[]> {
         await requireAuthenticatedUser();
         const { data, error } = await supabase.from("user_data_sources").select("*").order("source_type");
-        if (error) throwDataError(error, "We couldn't load your connected sources.");
+        if (error) throwDataError(error, copy.errors.connectedSources);
         return (data as Row[]).map(mapSource);
     },
 
     async getStatuses(): Promise<Array<{ sourceType: ContextSourceType; group: SourceDefinition["group"]; record: SourceRecord | null; state: SourceState; runtime: Awaited<ReturnType<typeof permissionManager.getStatus>> }>> {
         const records = await this.listSources().catch(() => [] as SourceRecord[]);
-        const registry = Object.keys(SOURCE_DEFINITIONS) as ContextSourceType[];
+        // Final decision: only the 13 connectable sources are exposed.
+        // Removed sources are deleted from the registry — never shown as unavailable.
+        // voice_session stays in the registry for the voice pipeline but is not a connected-source row.
+        const registry = CONNECTABLE_SOURCES;
         // One entry per registry source, in canonical order — never duplicates,
         // even when no registry rows exist yet for this account.
-        const statuses = await Promise.all(
+        // Platform rule: Apple sources show on iOS, Android sources on Android.
+        // Visibility rule: anything unavailable is hidden — never shown as unavailable.
+        // (platform unsupported, missing module, or runtime error).
+        const statuses = (await Promise.all(
             registry.map(async (sourceType) => {
                 const runtime = await permissionManager.getStatus(sourceType);
                 const record = records.find((candidate) => candidate.sourceType === sourceType) ?? null;
@@ -54,6 +61,12 @@ export const contextService = {
                 else if (SOURCE_DEFINITIONS[sourceType].connection === "oauth" && runtime.state === "available") state = "connected";
                 return { sourceType, group: SOURCE_DEFINITIONS[sourceType].group, record, state, runtime };
             }),
+        )).filter(
+            (status) =>
+                status.runtime.platformSupport !== "not_available" &&
+                status.runtime.platformSupport !== "policy_restricted" &&
+                status.state !== "not_available" &&
+                status.state !== "error",
         );
         return statuses;
     },
@@ -67,21 +80,21 @@ export const contextService = {
             sources: statuses
                 .filter((status) => status.group === key)
                 .map(({ sourceType, state, runtime, record }) => ({ sourceType, state, runtime, lastSyncedAt: record?.lastSyncedAt ?? null })),
-        }));
+        })).filter((group) => group.sources.length > 0);
     },
 
     async connect(sourceType: ContextSourceType, mode?: string): Promise<SourceRecord> {
         const user = await requireAuthenticatedUser();
         const runtime = await permissionManager.getStatus(sourceType);
         if (runtime.platformSupport === "not_available" || runtime.platformSupport === "policy_restricted") {
-            throwDataError(new Error("Source unavailable"), "This source isn't available on your device.");
+            throwDataError(new Error("Source unavailable"), copy.errors.sourceUnavailable);
         }
         let permissionState = runtime.permissionState;
         if (permissionState !== "granted") {
             const requested = await permissionManager.request(sourceType);
             permissionState = requested.permissionState;
             if (permissionState !== "granted") {
-                throwDataError(new Error("Permission denied"), "Aks needs that permission to connect this source. You can try again later.");
+                throwDataError(new Error("Permission denied"), copy.errors.sourcePermission);
             }
         }
         const { data, error } = await supabase
@@ -98,7 +111,7 @@ export const contextService = {
             }, { onConflict: "user_id,source_type" })
             .select()
             .single();
-        if (error) throwDataError(error, "We couldn't connect that source.");
+        if (error) throwDataError(error, copy.errors.sourceConnect);
         return mapSource(data as Row);
     },
 
@@ -109,7 +122,7 @@ export const contextService = {
             .update({ status: "revoked", disconnected_at: new Date().toISOString(), updated_at: new Date().toISOString() })
             .eq("user_id", user.id)
             .eq("source_type", sourceType);
-        if (error) throwDataError(error, "We couldn't disconnect that source.");
+        if (error) throwDataError(error, copy.errors.sourceDisconnect);
         // Future collection stops here; stored observations are untouched
         // until the user separately asks to delete imported data.
     },
@@ -117,7 +130,7 @@ export const contextService = {
     async deleteSourceData(sourceType: ContextSourceType): Promise<void> {
         const user = await requireAuthenticatedUser();
         const { error } = await supabase.from("observations").delete().eq("user_id", user.id).eq("source_type", sourceType);
-        if (error) throwDataError(error, "We couldn't delete that source's data.");
+        if (error) throwDataError(error, copy.errors.sourceDelete);
     },
 
     /** Collect from connected adapters, dedupe through the DB upsert, stamp last sync. */

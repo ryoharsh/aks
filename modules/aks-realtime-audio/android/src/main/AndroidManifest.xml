@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Microphone access for live realtime capture. The user-facing rationale
+       is declared by the expo-audio config plugin in app.json. -->
+  <uses-permission android:name="android.permission.RECORD_AUDIO" />
+</manifest>

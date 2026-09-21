@@ -19,7 +19,9 @@ export type OneSignalClientConfig = {
 export const ONESIGNAL_API_BASE = "https://api.onesignal.com";
 
 export function resolveOneSignalConfig(env: { get(key: string): string | undefined }): OneSignalClientConfig | null {
-    const appId = env.get("ONESIGNAL_APP_ID");
+    // Single app id variable shared with the client build. Set it as a
+    // function secret too: supabase secrets set EXPO_PUBLIC_ONESIGNAL_APP_ID=...
+    const appId = env.get("EXPO_PUBLIC_ONESIGNAL_APP_ID");
     const apiKey = env.get("ONESIGNAL_REST_API_KEY");
     if (!appId || !apiKey) return null;
     return { appId, apiKey };

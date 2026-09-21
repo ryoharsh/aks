@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 
+import { copy } from "@/constants/copy";
 import { usePagedData } from "./usePagedData";
 import { dataEvents } from "@/services/dataEvents";
 import { insightsService } from "@/services/insights.service";
@@ -27,7 +28,7 @@ export function useInsight(id: string) {
             const nextInsight = await insightsService.getInsight(id);
             const nextSources = nextInsight ? await insightsService.getInsightSources(nextInsight) : null;
             if (current === request.current) { setInsight(nextInsight); setSources(nextSources); }
-        } catch { if (current === request.current) setError("We couldn't load this insight."); }
+        } catch { if (current === request.current) setError(copy.errors.insight); }
         finally { if (current === request.current) setLoading(false); }
     }, [id]);
     useEffect(() => { void refresh(); return () => { request.current += 1; }; }, [refresh]);

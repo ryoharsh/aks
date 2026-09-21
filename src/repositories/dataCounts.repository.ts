@@ -38,10 +38,21 @@ async function countInsights() {
     return total ?? 0;
 }
 
+/**
+ * Connected sources come from the canonical personal-context registry
+ * (`user_data_sources`), the same table the source control center reads and
+ * writes. Never inferred from any other table.
+ */
+async function countConnectedSources() {
+    const { count: total, error } = await supabase.from("user_data_sources").select("id", { count: "exact", head: true }).eq("status", "connected");
+    if (error) throwDataError(error);
+    return total ?? 0;
+}
+
 export const dataCountsRepository = {
     async get(): Promise<YourDataCounts> {
         await requireAuthenticatedUser();
-        const [conversations, reflections, checkIns, memories, patterns, experiments, learnings, insights] = await Promise.all([
+        const [conversations, reflections, checkIns, memories, patterns, experiments, learnings, insights, connectedSources] = await Promise.all([
             count("conversations"),
             count("reflections"),
             count("check_ins"),
@@ -50,7 +61,8 @@ export const dataCountsRepository = {
             countExperiments(),
             countLearnings(),
             countInsights(),
+            countConnectedSources(),
         ]);
-        return { conversations, reflections, checkIns, memories, patterns, experiments, learnings, insights };
+        return { conversations, reflections, checkIns, memories, patterns, experiments, learnings, insights, connectedSources };
     },
 };

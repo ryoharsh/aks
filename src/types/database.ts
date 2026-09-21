@@ -41,6 +41,8 @@ export type Database = {
                     notifications_enabled: boolean;
                     notification_categories: Json;
                     quiet_hours_enabled: boolean;
+                    timezone: string | null;
+                    language: string | null;
                     updated_at: string;
                 };
                 Insert: {
@@ -51,6 +53,8 @@ export type Database = {
                     notifications_enabled?: boolean;
                     notification_categories?: Json;
                     quiet_hours_enabled?: boolean;
+                    timezone?: string | null;
+                    language?: string | null;
                     updated_at?: string;
                 };
                 Update: {
@@ -60,6 +64,8 @@ export type Database = {
                     notifications_enabled?: boolean;
                     notification_categories?: Json;
                     quiet_hours_enabled?: boolean;
+                    timezone?: string | null;
+                    language?: string | null;
                     updated_at?: string;
                 };
                 Relationships: [];
@@ -686,6 +692,8 @@ export type Database = {
             touch_notification_timezone: { Args: { p_timezone: string }; Returns: string };
             upsert_observation: { Args: { p_user_id: string; p_source_type: string; p_observation_type: string; p_source_event_id: string; p_observed_at: string; p_value: Json; p_confidence: number | null; p_metadata: Json }; Returns: Json };
             get_context_bundle: { Args: { p_user_id: string; p_anchor?: string; p_window_hours?: number; p_limit?: number; p_source_filter?: Json }; Returns: Json };
+            search_conversations: { Args: { search_query: string; page_offset?: number; page_size?: number }; Returns: Json };
+            edit_user_message: { Args: { target_message_id: string; new_content: string }; Returns: Json };
             record_sync_result: { Args: { p_user_id: string; p_source_type: string; p_status: string; p_cursor?: Json; p_error?: string }; Returns: undefined };
             enqueue_provider_sync: { Args: { p_user_id: string; p_source_type: string; p_job_key: string; p_payload?: Json }; Returns: string };
         };

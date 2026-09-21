@@ -1,10 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import Animated, { FadeInUp, FadeInDown } from "react-native-reanimated";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react-native";
 import {
-    Alert02Icon,
     ArrowLeft01Icon,
     ArrowRight01Icon,
     BubbleChatIcon,
@@ -13,12 +12,9 @@ import {
     CheckListIcon,
     GithubIcon,
     GoogleIcon,
-    HealthIcon,
-    ImageIcon,
     Link01Icon,
     LinkSquare01Icon,
     Mail01Icon,
-    Mic01Icon,
     SlackIcon,
     SmartPhone01Icon,
     Task01Icon,
@@ -29,10 +25,12 @@ import AppText from "@/components/ui/Text";
 import IconButton from "@/components/ui/IconButton";
 import Button from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
+import { formatRelativeTime } from "@/lib/date";
 import { contextService } from "@/services/context/context.service";
 import { oauthSourceLinks } from "@/services/context/oauth";
 import { SOURCE_DEFINITIONS, type ContextSourceType, type SourceState } from "@/services/context/types";
 import type { YourDataStackParamList } from "@/navigation/routes";
+import { copy } from "@/constants/copy";
 
 type Props = NativeStackScreenProps<YourDataStackParamList, "ConnectedSources">;
 
@@ -41,6 +39,7 @@ type SourceUi = {
     name: string;
     state: SourceState;
     statusLabel: string;
+    lastSyncedAt: string | null;
     definition: (typeof SOURCE_DEFINITIONS)[ContextSourceType];
 };
 
@@ -64,27 +63,25 @@ const sourceIcons: Partial<Record<ContextSourceType, IconSvgElement>> = {
     slack: SlackIcon,
     email: Mail01Icon,
     screen_time: SmartPhone01Icon,
-    photos: ImageIcon,
-    voice_session: Mic01Icon,
-    health: HealthIcon,
-    calls: Alert02Icon,
-    messages: Alert02Icon,
-    notifications_source: Alert02Icon,
-    contacts: Alert02Icon,
-    app_activity: Alert02Icon,
 };
 
 function statusCopy(state: SourceState): string {
     switch (state) {
-        case "connected": return "Connected";
-        case "permission_required": return "Permission needed";
-        case "not_connected": return "Not connected";
-        case "not_available": return "Unavailable on this device";
-        case "revoked": return "Disconnected";
-        case "temporarily_unavailable": return "Temporarily unavailable";
-        case "error": return "Unavailable right now";
-        default: return "Not connected";
+        case "connected": return copy.connectedSources.status.connected;
+        case "permission_required": return copy.connectedSources.status.permissionRequired;
+        case "not_connected": return copy.connectedSources.status.notConnected;
+        case "not_available": return copy.connectedSources.status.notAvailable;
+        case "revoked": return copy.connectedSources.status.revoked;
+        case "temporarily_unavailable": return copy.connectedSources.status.temporarilyUnavailable;
+        case "error": return copy.connectedSources.status.error;
+        default: return copy.connectedSources.status.notConnected;
     }
+}
+
+/** Only reports a sync time the registry actually recorded. */
+function syncCopy(lastSyncedAt: string | null): string {
+    const synced = formatRelativeTime(lastSyncedAt);
+    return synced ? copy.connectedSources.syncedAgo(synced) : copy.connectedSources.notSynced;
 }
 
 function SectionLabel({ children }: { children: string }) {
@@ -102,7 +99,8 @@ export default function ConnectedSourcesScreen({ navigation }: Props) {
         setError(null);
         try {
             const grouped = await contextService.getGroupedStatuses();
-            setGroups(grouped.map((group) => ({
+            // Removed sources are deleted, not shown as unavailable — skip any empty group.
+            setGroups(grouped.filter((group) => group.sources.length > 0).map((group) => ({
                 key: group.key,
                 label: group.label,
                 sources: group.sources.map((source) => ({
@@ -110,15 +108,20 @@ export default function ConnectedSourcesScreen({ navigation }: Props) {
                     name: SOURCE_DEFINITIONS[source.sourceType].name,
                     state: source.state,
                     statusLabel: statusCopy(source.state),
+                    lastSyncedAt: source.lastSyncedAt,
                     definition: SOURCE_DEFINITIONS[source.sourceType],
                 })),
             })));
         } catch {
-            setError("We couldn't load your connected sources.");
+            setError(copy.connectedSources.loadError);
         }
     }, []);
 
-    useState(() => { void load(); });
+    useEffect(() => { void load(); }, [load]);
+
+    // The OAuth callback lands while this screen is open; reflect it immediately
+    // instead of waiting for the next manual visit.
+    useEffect(() => oauthSourceLinks.addListener(() => { void load(); }), [load]);
 
     const connect = async (sourceType: ContextSourceType) => {
         setBusy(sourceType);
@@ -126,13 +129,13 @@ export default function ConnectedSourcesScreen({ navigation }: Props) {
             const definition = SOURCE_DEFINITIONS[sourceType];
             if (definition.connection === "oauth") {
                 const started = await oauthSourceLinks.connect(sourceType);
-                if (!started) setError("That provider isn't configured yet on this build.");
+                if (!started) setError(copy.connectedSources.notices.providerNotConfigured);
             } else {
                 await contextService.connect(sourceType);
             }
             await load();
         } catch {
-            setError("We couldn't connect that source right now.");
+            setError(copy.connectedSources.notices.unableToConnect);
         } finally {
             setBusy(null);
         }
@@ -179,7 +182,7 @@ export default function ConnectedSourcesScreen({ navigation }: Props) {
                         <AppText className="text-text-medium">{definition.name}</AppText>
                         <AppText variant="caption" className="mt-1 text-text-low">
                             {source.statusLabel}
-                            {source.state === "connected" ? ` · synced today` : ""}
+                            {source.state === "connected" ? ` · ${syncCopy(source.lastSyncedAt)}` : ""}
                         </AppText>
                     </View>
                     <HugeiconsIcon icon={isExpanded ? Cancel01Icon : ArrowRight01Icon} size={17} color={iconColor} style={{ marginLeft: 8 }} />
@@ -187,21 +190,21 @@ export default function ConnectedSourcesScreen({ navigation }: Props) {
 
                 {isExpanded ? (
                     <View className="mt-4 rounded-3xl bg-background p-4">
-                        <AppText variant="caption" className="tracking-[1.2px] text-text-low">WHY IT HELPS</AppText>
+                        <AppText variant="caption" className="tracking-[1.2px] text-text-low">{copy.connectedSources.whyHelps}</AppText>
                         <AppText className="mt-2 leading-6 text-text-high">{definition.purpose}</AppText>
 
-                        <AppText variant="caption" className="mt-4 tracking-[1.2px] text-text-low">WHAT AKS RECEIVES</AppText>
+                        <AppText variant="caption" className="mt-4 tracking-[1.2px] text-text-low">{copy.connectedSources.whatReceives}</AppText>
                         <AppText className="mt-2 leading-6 text-text-high">{definition.whatAksReceives}</AppText>
 
-                        <AppText variant="caption" className="mt-4 tracking-[1.2px] text-text-low">WHAT IS STORED</AppText>
+                        <AppText variant="caption" className="mt-4 tracking-[1.2px] text-text-low">{copy.connectedSources.whatStored}</AppText>
                         <AppText className="mt-2 leading-6 text-text-high">{definition.whatIsStored}</AppText>
 
-                        <AppText variant="caption" className="mt-4 tracking-[1.2px] text-text-low">HOW TO STOP</AppText>
+                        <AppText variant="caption" className="mt-4 tracking-[1.2px] text-text-low">{copy.connectedSources.howToStop}</AppText>
                         <AppText className="mt-2 leading-6 text-text-high">{definition.howToStop}</AppText>
 
                         {definition.batteryNote ? (
                             <>
-                                <AppText variant="caption" className="mt-4 tracking-[1.2px] text-text-low">GOOD TO KNOW</AppText>
+                                <AppText variant="caption" className="mt-4 tracking-[1.2px] text-text-low">{copy.connectedSources.goodToKnow}</AppText>
                                 <AppText className="mt-2 leading-6 text-text-high">{definition.batteryNote}</AppText>
                             </>
                         ) : null}
@@ -210,23 +213,23 @@ export default function ConnectedSourcesScreen({ navigation }: Props) {
                             {source.state === "connected" ? (
                                 <>
                                     <Button variant="secondary" onPress={() => void disconnect(source.sourceType)} disabled={busy === source.sourceType}>
-                                        <AppText variant="button" className="text-text-high">Disconnect</AppText>
+                                        <AppText variant="button" className="text-text-high">{copy.connectedSources.disconnect}</AppText>
                                     </Button>
                                     <Button variant="secondary" onPress={() => void deleteData(source.sourceType)} disabled={busy === source.sourceType}>
-                                        <AppText variant="button" className="text-text-high">Delete imported data</AppText>
+                                        <AppText variant="button" className="text-text-high">{copy.connectedSources.deleteData}</AppText>
                                     </Button>
                                 </>
                             ) : source.state === "permission_required" ? (
                                 <Button onPress={() => void connect(source.sourceType)} disabled={busy === source.sourceType}>
-                                    <AppText variant="button" className="text-primary-foreground">Allow</AppText>
+                                    <AppText variant="button" className="text-primary-foreground">{copy.connectedSources.allow}</AppText>
                                 </Button>
                             ) : source.state === "not_connected" ? (
                                 <Button onPress={() => void connect(source.sourceType)} disabled={busy === source.sourceType}>
-                                    <AppText variant="button" className="text-primary-foreground">Connect</AppText>
+                                    <AppText variant="button" className="text-primary-foreground">{copy.connectedSources.connect}</AppText>
                                 </Button>
                             ) : source.state === "revoked" ? (
                                 <Button onPress={() => void connect(source.sourceType)} disabled={busy === source.sourceType}>
-                                    <AppText variant="button" className="text-primary-foreground">Reconnect</AppText>
+                                    <AppText variant="button" className="text-primary-foreground">{copy.connectedSources.reconnect}</AppText>
                                 </Button>
                             ) : null}
                         </View>
@@ -239,20 +242,18 @@ export default function ConnectedSourcesScreen({ navigation }: Props) {
     return (
         <View className="flex-1 bg-background">
             <Animated.View entering={FadeInUp.duration(400)} className="h-16 flex-row items-center px-5">
-                <IconButton onPress={() => navigation.goBack()} className="mr-3" accessibilityLabel="Back">
+                <IconButton onPress={() => navigation.goBack()} className="mr-3" accessibilityLabel={copy.common.back}>
                     <HugeiconsIcon icon={ArrowLeft01Icon} size={22} color={iconColor} />
                 </IconButton>
-                <AppText variant="title" className="text-text-high">Connected sources</AppText>
+                <AppText variant="title" className="text-text-high">{copy.connectedSources.header}</AppText>
             </Animated.View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-5 pb-24">
                 <Animated.View entering={FadeInDown.duration(500).delay(80)} className="mt-5">
-                    <SectionLabel>CONTEXT &amp; PERMISSIONS</SectionLabel>
-                    <AppText variant="display" className="text-text-high">You decide what Aks knows.</AppText>
+                    <SectionLabel>{copy.connectedSources.eyebrow}</SectionLabel>
+                    <AppText variant="display" className="text-text-high">{copy.connectedSources.title}</AppText>
                     <AppText className="mt-3 leading-6 text-text-low">
-                        Aks works fully without any connected source. Each source is optional,
-                        independent, and explains exactly what it shares. You can disconnect
-                        anything at any time.
+                        {copy.connectedSources.description}
                     </AppText>
                 </Animated.View>
 
@@ -278,11 +279,9 @@ export default function ConnectedSourcesScreen({ navigation }: Props) {
                 )}
 
                 <Animated.View entering={FadeInUp.duration(450).delay(220)} className="mt-9 rounded-[28px] border border-border bg-surface p-5">
-                    <SectionLabel>YOUR CHOICE</SectionLabel>
+                    <SectionLabel>{copy.connectedSources.choiceSection}</SectionLabel>
                     <AppText className="leading-6 text-text-low">
-                        Aks never monitors you secretly. Observations only exist for sources
-                        you connect, and each connection can be stopped in one tap. Deleting a
-                        source's imported data never touches your conversations or memories.
+                        {copy.connectedSources.choiceBody}
                     </AppText>
                 </Animated.View>
             </ScrollView>
