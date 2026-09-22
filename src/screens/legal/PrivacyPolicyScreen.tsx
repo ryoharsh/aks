@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import LegalWebView from "@/components/common/LegalWebView";
 import { copy } from "@/constants/copy";
 
-const PRIVACY_URL = "https://hirixa.vercel.app/privacy";
+const PRIVACY_URL = "https://aks-olive.vercel.app/privacy";
 
 export default function PrivacyPolicyScreen() {
     const navigation = useNavigation();

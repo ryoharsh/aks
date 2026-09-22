@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import LegalWebView from "@/components/common/LegalWebView";
 import { copy } from "@/constants/copy";
 
-const TERMS_URL = "https://hirixa.vercel.app/terms";
+const TERMS_URL = "https://aks-olive.vercel.app/terms";
 
 export default function TermsScreen() {
     const navigation = useNavigation();
