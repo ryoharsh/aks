@@ -18,7 +18,8 @@
 ## Table of contents
 
 - [What it is](#what-it-is)
-- [Demo](#demo-screenshots--video)
+- [Screenshots](#screenshots)
+- [Demo video](#demo-video)
 - [How it works](#how-it-works)
 - [Key features](#key-features)
 - [Tech stack](#tech-stack)
@@ -53,30 +54,81 @@ Aks stays fully useful with **zero** sources connected.
 
 ---
 
-## Demo — screenshots & video
+## Screenshots
 
-> Screenshots and a product video will live here.
+> All captures live in [`screenshots/`](./screenshots/) at the repo root.
+> (Run `git add screenshots` — the folder is untracked until you stage it —
+> otherwise the images below won't render on GitHub.)
 
-| Mirror | Timeline | You |
+### Getting started
+
+| Splash | Legal consent | Create account | Sign in |
+| --- | --- | --- | --- |
+| <img src="screenshots/Screenshot_1790073682.png" width="250" alt="Splash — Aks.ai logo and tagline"> | <img src="screenshots/Screenshot_1790073697.png" width="250" alt="Before we begin — Terms and Privacy consent"> | <img src="screenshots/Screenshot_1790073776.png" width="250" alt="Create your account"> | <img src="screenshots/Screenshot_1790073770.png" width="250" alt="Welcome back — magic-link and OAuth sign in"> |
+
+### Mirror — the conversational home
+
+| Mirror home | Conversation history |
+| --- | --- |
+| <img src="screenshots/Screenshot_1790073745.png" width="250" alt="Mirror home — time-aware greeting, topic chips, quick check-in, live Hindi conversation"> | <img src="screenshots/Screenshot_1790074139.png" width="250" alt="Conversation history — check-in-aware reply, timestamps per turn"> |
+
+### Timeline & You
+
+| Timeline | You |
+| --- | --- |
+| <img src="screenshots/Screenshot_1790073891.png" width="250" alt="Timeline — your story as it unfolds, filters, check-in entry"> | <img src="screenshots/Screenshot_1790073899.png" width="250" alt="You tab — profile, what Aks knows, patterns, experiments, your data"> |
+
+### Intelligence — memories, insights, experiments
+
+| What Aks remembers | Insights | Experiments |
 | --- | --- | --- |
-| ![Mirror — coming soon](docs/screenshots/mirror.png) | ![Timeline — coming soon](docs/screenshots/timeline.png) | ![You — coming soon](docs/screenshots/you.png) |
+| <img src="screenshots/Screenshot_1790073994.png" width="250" alt="What Aks remembers — evidence-backed context empty state"> | <img src="screenshots/Screenshot_1790074000.png" width="250" alt="Insights — something worth noticing, empty state"> | <img src="screenshots/Screenshot_1790074006.png" width="250" alt="Experiments — small tests useful evidence, empty state"> |
 
-Additional captures can go in `docs/screenshots/`:
+### Connected sources
 
-```text
-docs/
-  screenshots/
-    mirror.png
-    timeline.png
-    you.png
-    check-in.png
-    experiment.png
-    onboarding.png
-  video/
-    demo.mp4        # or link below
-```
+| Connected sources |
+| --- |
+| <img src="screenshots/Screenshot_1790074106.png" width="250" alt="Connected sources — you decide what Aks knows, per-source opt-in"> |
 
-Demo video (placeholder — replace with your link):
+### Settings & preferences
+
+| Settings | Subscription | Language | Timezone |
+| --- | --- | --- | --- |
+| <img src="screenshots/Screenshot_1790073911.png" width="250" alt="Settings — profile, account, subscription, language"> | <img src="screenshots/Screenshot_1790073920.png" width="250" alt="Subscription — Aks Premium plan and billing"> | <img src="screenshots/Screenshot_1790073927.png" width="250" alt="Language picker — 9 languages"> | <img src="screenshots/Screenshot_1790073942.png" width="250" alt="Timezone picker — local time for scheduling"> |
+
+| Appearance | Notifications | Profile | Focus areas |
+| --- | --- | --- | --- |
+| <img src="screenshots/Screenshot_1790074017.png" width="250" alt="Appearance — system light dark theme"> | <img src="screenshots/Screenshot_1790074011.png" width="250" alt="Notifications — only when it matters, per-category toggles"> | <img src="screenshots/Screenshot_1790073975.png" width="250" alt="Profile — name, photo, focus, timezone, language"> | <img src="screenshots/Screenshot_1790073957.png" width="250" alt="What you're exploring — choose your focus"> |
+
+| About | Photo sheet | Edit name |
+| --- | --- | --- |
+| <img src="screenshots/Screenshot_1790073932.png" width="250" alt="About Aks — product and version"> | <img src="screenshots/Screenshot_1790073982.png" width="250" alt="Profile photo bottom sheet"> | <img src="screenshots/Screenshot_1790073985.png" width="250" alt="Edit your name bottom sheet"> |
+
+### Privacy & your data
+
+| Privacy hub | What Aks can access | How data is used |
+| --- | --- | --- |
+| <img src="screenshots/Screenshot_1790074022.png" width="250" alt="Privacy — your life is yours, data controls"> | <img src="screenshots/Screenshot_1790074030.png" width="250" alt="What Aks can access — connected sources and held data"> | <img src="screenshots/Screenshot_1790074026.png" width="250" alt="How your data is used — purpose, pattern detection, memory"> |
+
+| Export | Delete | Your data |
+| --- | --- | --- |
+| <img src="screenshots/Screenshot_1790074043.png" width="250" alt="Export your data — what's included"> | <img src="screenshots/Screenshot_1790074048.png" width="250" alt="Delete your data — leave nothing behind"> | <img src="screenshots/Screenshot_1790074097.png" width="250" alt="Your data — reflections check-ins conversations counts"> |
+
+### Trust — legal documents
+
+| Terms of Service | Privacy Policy |
+| --- | --- |
+| <img src="screenshots/Screenshot_1790073850.png" width="250" alt="Terms of Service"> | <img src="screenshots/Screenshot_1790073858.png" width="250" alt="Privacy Policy"> |
+
+### Help & feedback
+
+| Help & feedback | FAQ | Report a problem | Send feedback |
+| --- | --- | --- | --- |
+| <img src="screenshots/Screenshot_1790074060.png" width="250" alt="Help and feedback — contact support, FAQ, report, suggest"> | <img src="screenshots/Screenshot_1790074063.png" width="250" alt="Frequently asked questions with search"> | <img src="screenshots/Screenshot_1790074067.png" width="250" alt="Report a problem — category and description"> | <img src="screenshots/Screenshot_1790074072.png" width="250" alt="Send feedback — help shape Aks"> |
+
+## Demo video
+
+> Coming soon — a walkthrough video will be linked here.
 
 ```text
 https://your-hosting-url/aks-demo.mp4
@@ -210,7 +262,7 @@ aks/
                            # voice-reflection, provider-sync, notifications-*,
                            # revenuecat-webhook, delete-account, export-data…
     README.md              # backend setup guide
-  docs/                    # screenshots/ + video/ (add yours — see Demo)
+  screenshots/             # 35 annotated app captures (see Screenshots)
   features.md              # behavioral map of the app
   scripts/                 # maintenance / tooling
 ```
@@ -377,7 +429,8 @@ tests fail until the table is complete.
 
 ## Roadmap
 
-- [ ] Screenshots + demo video (see [Demo](#demo-screenshots--video))
+- [x] Screenshots (see [Screenshots](#screenshots))
+- [ ] Demo video (see [Demo video](#demo-video))
 - [ ] Store listings (App Store / Play) copy + review prep
 - [ ] EAS Update channels for OTA fixes
 - [ ] Deeper experiment analytics from real observations
