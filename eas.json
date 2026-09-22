@@ -14,7 +14,10 @@
         "EXPO_PUBLIC_ONESIGNAL_APP_ID": "07dae53a-3054-4051-a82c-1e389387c75e",
         "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "test_UHusLthArhZwaxaKkvMrhqAyfYS",
         "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "goog_dJhFCJVGdCSGCerojuaglKxhJDq",
-        "EXPO_PUBLIC_REVENUECAT_WEB_API_KEY": "test_UHusLthArhZwaxaKkvMrhqAyfYS"
+        "EXPO_PUBLIC_REVENUECAT_WEB_API_KEY": "test_UHusLthArhZwaxaKkvMrhqAyfYS",
+        "EXPO_PUBLIC_SUBSCRIPTIONS_ENABLED": "false",
+        "EXPO_PUBLIC_ENABLE_AI_CONVERSATION": "false"
+
       }
     },
     "development": {
@@ -34,7 +37,10 @@
     },
     "production": {
       "extends": "base",
-      "autoIncrement": true
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      }
     }
   },
   "submit": {
