@@ -6,6 +6,7 @@ export type AuthErrorType =
     | "NETWORK_ERROR"
     | "OAUTH_CANCELLED"
     | "NOT_CONFIGURED"
+    | "REVIEWER_NOT_CONFIGURED"
     | "WEB_CRYPTO_UNAVAILABLE"
     | "UNKNOWN";
 

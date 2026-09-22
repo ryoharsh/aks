@@ -261,7 +261,30 @@ EXPO_PUBLIC_AUTH_FACEBOOK_ENABLED=false
 EXPO_PUBLIC_ENABLE_MIRROR_VOICE_RECORDING=false   # keep off unless you need the legacy fallback
 # EXPO_PUBLIC_ENABLE_AI_CONVERSATION=true          # opt-in full-screen AI route
 # EXPO_PUBLIC_SUBSCRIPTIONS_ENABLED=false          # dev bypass (client side)
+# EXPO_PUBLIC_REVIEWER_EMAIL=play-review@example.com  # Play review bypass (with password below)
+# EXPO_PUBLIC_REVIEWER_PASSWORD=a-throwaway-password  # throwaway demo account only — ships in the binary
 ```
+
+### Google Play review sign-in
+
+Play reviewers cannot open an email inbox, so the magic link can never be
+clicked. When **both** reviewer vars are set, entering the reviewer email on
+the Login (or Register) screen signs straight into that demo account with a
+password — no verification step. Every other email uses the normal magic-link
+flow; a half-configured bypass (email without password) fails closed with an
+honest error instead of sending a link nobody can open.
+
+Setup before the review build:
+
+1. Create a **throwaway** demo user in Supabase Auth, confirm its email, and set its password.
+2. Put the same address + password in `EXPO_PUBLIC_REVIEWER_EMAIL` / `EXPO_PUBLIC_REVIEWER_PASSWORD`
+   as EAS dashboard environment variables on the environment used for the
+   submitted build (Expo dashboard → your project → *Environment variables* —
+   kept out of git; `eas.json` intentionally carries no placeholder since EAS
+   rejects empty values), or in `.env` for local testing, and rebuild.
+3. Paste the same credentials into Play Console → *App access* instructions.
+4. Keep the demo account data-free: anyone who learns the address can sign into
+   *that account only* (RLS still isolates it from every other user).
 
 Server (Supabase secrets — never `EXPO_PUBLIC_*`):
 

@@ -10,6 +10,10 @@ import {
 } from "@/lib/supabase";
 import { AuthError, type AuthProviderName } from "./auth.types";
 import { normalizeAuthError, normalizeEmail, normalizeName } from "./auth.utils";
+import {
+    getReviewerCredentials,
+    isReviewerEmail,
+} from "./reviewerBypass";
 
 export const authRedirectUrl = Linking.createURL("auth/callback");
 export const supabaseCallbackUrl =
@@ -42,6 +46,23 @@ async function sendMagicLink(
     assertConfigured();
     assertWebCryptoAvailable();
     const normalizedEmail = normalizeEmail(email);
+
+    // Google Play review bypass: reviewers cannot open an email inbox, so the
+    // configured demo address signs in with a password instead of receiving a
+    // magic link. Scoped to that one throwaway account; everything else flows
+    // through the normal OTP path below. See reviewerBypass.ts.
+    if (isReviewerEmail(normalizedEmail)) {
+        const credentials = getReviewerCredentials(normalizedEmail);
+        if (!credentials) {
+            throw new AuthError(
+                "REVIEWER_NOT_CONFIGURED",
+                "Reviewer sign-in isn't configured in this build. Please try again later.",
+            );
+        }
+        const { error } = await supabase.auth.signInWithPassword(credentials);
+        if (error) throw normalizeAuthError(error);
+        return;
+    }
 
     const { error } = await supabase.auth.signInWithOtp({
         email: normalizedEmail,
